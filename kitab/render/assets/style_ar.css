@@ -1,0 +1,319 @@
+/* Arabic book stylesheet.
+ *
+ * The whole point of the Markdown route is that this file, plus the browser's own
+ * bidi and shaping, replaces a hand-written glyph placement engine. Nothing here
+ * computes embedding levels or joins letters: the rendering engine runs UAX #9 and
+ * HarfBuzz, correctly, for every viewer.
+ *
+ * Three rules carry most of the correctness:
+ *   1. dir="rtl" on <html>, set in the template, not here.
+ *   2. Code and other machine text is isolated LTR, so an identifier inside an Arabic
+ *      sentence cannot drag the surrounding punctuation to the wrong side.
+ *   3. Nothing relies on physical left/right; margins and padding are logical
+ *      properties, so the same sheet works if a future edition is LTR.
+ */
+
+:root {
+  --ink: #14181f;
+  --muted: #5a6472;
+  --paper: #ffffff;
+  --rule: #dbdfe6;
+  --code-bg: #f4f5f7;
+  --accent: #12607f;
+  --measure: 34em;
+  --body-size: 1.05rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e7eaef;
+    --muted: #9aa4b2;
+    --paper: #12151a;
+    --rule: #2a303a;
+    --code-bg: #1b1f26;
+    --accent: #63b4d6;
+  }
+}
+
+html {
+  font-size: 100%;
+}
+
+body {
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+  max-width: var(--measure);
+  background: var(--paper);
+  color: var(--ink);
+
+  /* Naskh faces first: they are what Arabic prose is set in. The Latin fallbacks
+   * matter because a technical book is full of Latin identifiers. */
+  font-family: "Noto Naskh Arabic", "Amiri", "Scheherazade New", "IBM Plex Sans Arabic",
+    "Segoe UI", "Times New Roman", serif;
+  font-size: var(--body-size);
+
+  /* Arabic needs more leading than Latin: the script has deep descenders and marks
+   * sit above the baseline. 1.4 is cramped; 1.9 is right for a book. */
+  line-height: 1.9;
+  text-align: right;
+  hyphens: none; /* Arabic is not hyphenated */
+}
+
+p {
+  margin: 0 0 1em;
+  text-align: justify;
+  /* Arabic justification is by kashida in metal type and by spacing on screen.
+   * inter-word is what browsers do well; do not ask for letter spacing. */
+  text-justify: inter-word;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: 1.5;
+  margin: 1.8em 0 0.6em;
+  font-weight: 600;
+  text-align: right;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: 1.9em;
+  margin-block-start: 0;
+}
+h2 {
+  font-size: 1.5em;
+  border-block-end: 1px solid var(--rule);
+  padding-block-end: 0.3em;
+}
+h3 {
+  font-size: 1.22em;
+}
+h4,
+h5,
+h6 {
+  font-size: 1.05em;
+  color: var(--muted);
+}
+
+/* Lists: logical padding, so the marker sits on the correct side automatically. */
+ul,
+ol {
+  padding-inline-start: 1.6em;
+  padding-inline-end: 0;
+  margin: 0 0 1em;
+}
+
+li {
+  margin-block-end: 0.35em;
+}
+
+blockquote {
+  margin: 1.2em 0;
+  padding-inline-start: 1em;
+  border-inline-start: 3px solid var(--rule);
+  color: var(--muted);
+}
+
+/* ---- machine text -------------------------------------------------------
+ * Everything below is LTR inside an RTL page. `unicode-bidi: isolate` is the
+ * important half: it stops the surrounding Arabic from reordering the code's
+ * punctuation, which is the classic way mixed-direction technical text goes wrong.
+ */
+
+code,
+kbd,
+samp,
+pre,
+.kitab-ltr {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-family: "IBM Plex Mono", "Consolas", "DejaVu Sans Mono", monospace;
+  font-size: 0.9em;
+}
+
+code {
+  background: var(--code-bg);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 0.9em 1em;
+  overflow-x: auto;
+  text-align: left;
+  line-height: 1.6;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Formulas keep their own direction too. */
+.math,
+.katex {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* ---- figures ------------------------------------------------------------ */
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1.4em auto;
+}
+
+/* The Tier-1 legend: an Arabic key beneath an untouched figure. */
+blockquote.figure-key {
+  font-size: 0.92em;
+}
+
+/* ---- tables -------------------------------------------------------------
+ * The table itself is RTL so the first column sits on the right, which is what an
+ * Arabic reader expects. Wide tables scroll rather than forcing the page sideways.
+ */
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 1.2em 0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  direction: rtl;
+}
+
+th,
+td {
+  border: 1px solid var(--rule);
+  padding: 0.45em 0.7em;
+  text-align: right;
+  vertical-align: top;
+}
+
+th {
+  background: var(--code-bg);
+  font-weight: 600;
+}
+
+/* Digits stay Western and line up in columns. */
+td,
+th {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- bilingual review mode ---------------------------------------------- */
+
+.kitab-orig {
+  display: block;
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: left;
+  font-size: 0.85em;
+  color: var(--muted);
+  margin-block-start: 0.3em;
+  padding-inline-start: 0.6em;
+  border-inline-start: 2px solid var(--rule);
+}
+
+/* ---- print / PDF --------------------------------------------------------
+ * Honoured fully by WeasyPrint. Chromium ignores the margin boxes and takes its
+ * header and footer from Playwright's templates instead, which is why the page
+ * number is defined in both places.
+ */
+
+@page {
+  size: A5;
+  margin: 18mm 16mm 20mm;
+
+  @bottom-center {
+    content: counter(page);
+    font-family: "Noto Naskh Arabic", serif;
+    font-size: 9pt;
+    color: #666;
+  }
+}
+
+@media print {
+  :root {
+    --ink: #000;
+    --paper: #fff;
+    --muted: #444;
+    --rule: #bbb;
+    --code-bg: #f2f2f2;
+  }
+
+  body {
+    max-width: none;
+    padding: 0;
+    font-size: 11pt;
+    line-height: 1.85;
+  }
+
+  h1,
+  h2 {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+
+  /* A chapter opens on a new page -- but the break belongs to the whole opening,
+   * not to the <h1> alone. A book that sets "Walk 3" above the chapter title would
+   * otherwise break between them and strand the label on a page of its own. The
+   * renderer wraps consecutive headings in .chapter-open for exactly this. */
+  .chapter-open {
+    break-before: page;
+    break-after: avoid;
+  }
+
+  /* Never before the first thing in the book, or the reader opens on a blank sheet
+   * carrying nothing but a page number. */
+  body > *:first-child {
+    break-before: avoid !important;
+  }
+
+  /* A full-page cover taller than the page box is pushed to the next page and
+   * leaves a blank one behind it. Bound it to the page instead. */
+  img {
+    max-height: 88vh;
+    width: auto;
+    object-fit: contain;
+  }
+
+  p,
+  li,
+  blockquote {
+    orphans: 2;
+    widows: 2;
+  }
+
+  img,
+  table {
+    break-inside: avoid;
+  }
+
+  /* On screen a long code line scrolls. On paper there is nothing to scroll, so it
+   * would simply be clipped at the margin -- losing the right-hand end of every
+   * long statement, silently. Wrap instead, and let a long listing break across
+   * pages rather than overflow one. */
+  pre {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    overflow-x: visible;
+    break-inside: auto;
+    font-size: 8.5pt;
+  }
+
+  .kitab-orig {
+    display: none; /* the review layer is not part of the printed book */
+  }
+}

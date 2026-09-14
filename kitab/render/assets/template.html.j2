@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ title }}</title>
+    {%- if generator %}
+    <meta name="generator" content="{{ generator }}" />
+    {%- endif %}
+    {%- if source_language %}
+    <meta name="source-language" content="{{ source_language }}" />
+    {%- endif %}
+    <style>
+{{ css }}
+    </style>
+  </head>
+  <body>
+    {%- if show_title %}
+    <h1 class="book-title">{{ title }}</h1>
+    {%- endif %}
+{{ body }}
+  </body>
+</html>

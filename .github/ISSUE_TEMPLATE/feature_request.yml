@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest an improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check the **Things that will be declined** section of
+        [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md) first a language matrix,
+        page-faithful output and figure inpainting are all deliberate non-goals.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that kitab makes hard today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true

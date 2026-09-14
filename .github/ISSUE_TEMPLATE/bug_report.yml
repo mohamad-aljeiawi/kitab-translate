@@ -1,0 +1,54 @@
+name: Bug report
+description: Something produced wrong output, crashed, or behaved unexpectedly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do **not** attach copyrighted books. A few lines of the offending
+        Markdown from `04_translated.md` is almost always enough.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact kitab command you ran.
+      render: shell
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Source format
+      options: [PDF (digital), PDF (scanned), EPUB, HTML, Markdown, Other]
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: PDF backend
+      options: ["builtin", "fast", "marker", "not applicable"]
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Translation engine
+      options: ["google", "openai", "deepseek", "openailiked"]
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: "Output of `kitab --version` and `python --version`, plus your OS."
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Relevant part of report.json
+      description: Especially any failed-verification segments. Redact as needed.
+      render: json

@@ -1,0 +1,14 @@
+[flake8]
+# Match black's line length; E203/W503 conflict with black's formatting.
+max-line-length = 88
+extend-ignore = E203, W503, E501
+exclude =
+    .git,
+    .venv,
+    __pycache__,
+    build,
+    dist,
+    out,
+    work
+# _extract_builtin in ingest/pdf.py sits at 24; it is a backend dispatch table.
+max-complexity = 25

@@ -1,0 +1,94 @@
+[project]
+name = "kitab"
+version = "0.1.0"
+description = "Translate English and Japanese books into Arabic - PDF/EPUB in, right-to-left Arabic EPUB out"
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE", "NOTICE.md"]
+requires-python = ">=3.11"
+authors = [{ name = "mohamad-aljeiawi" }]
+keywords = [
+    "arabic",
+    "translation",
+    "book-translation",
+    "epub",
+    "pdf",
+    "rtl",
+    "localization",
+    "japanese",
+    "ocr",
+    "markdown",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Natural Language :: Arabic",
+    "Natural Language :: English",
+    "Natural Language :: Japanese",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Text Processing :: Linguistic",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Topic :: Utilities",
+]
+
+
+dependencies = [
+    # document model -- the spine of the pipeline
+    "markdown-it-py>=3.0",
+    "mdit-py-plugins>=0.4",
+    "mdformat>=0.7",
+    "mdformat-tables>=1.0",
+    "markdownify>=0.13",
+    # ingest
+    "pymupdf>=1.24",
+    "EbookLib>=0.18",
+    # render
+    "jinja2>=3.1",
+    # translate
+    "openai>=1.0.0",
+    "requests",
+    "tenacity",
+    # infrastructure
+    "peewee>=3.17",
+    "rich",
+]
+
+[project.optional-dependencies]
+# High-fidelity PDF -> Markdown. Heavy (torch); needs Python 3.11/3.12.
+marker = ["marker-pdf>=1.0"]
+# Lightweight PDF -> Markdown fallback. Pure CPU.
+fast = ["pymupdf4llm>=0.0.17"]
+# Stage 3: OCR for scanned pages and Tier-1 figure legends. CPU, ONNX.
+ocr = ["rapidocr-onnxruntime>=1.3"]
+# Stage 6: PDF output via headless Chromium.
+pdf = ["playwright>=1.40"]
+# Japanese vertical OCR (figure legends in JA sources).
+japanese = ["manga-ocr>=0.1.11"]
+
+[dependency-groups]
+dev = ["pytest", "black", "flake8"]
+
+[project.scripts]
+kitab = "kitab.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["kitab"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[project.urls]
+Homepage = "https://github.com/mohamad-aljeiawi/kitab-translate"
+Repository = "https://github.com/mohamad-aljeiawi/kitab-translate"
+Issues = "https://github.com/mohamad-aljeiawi/kitab-translate/issues"
+Changelog = "https://github.com/mohamad-aljeiawi/kitab-translate/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/mohamad-aljeiawi/kitab-translate/blob/main/docs/ARCHITECTURE.md"
