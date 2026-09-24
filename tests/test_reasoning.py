@@ -5,7 +5,6 @@ and ``temperature`` must not be sent while a model is reasoning. The client is f
 it records every request and can answer with the 400s the real API sends.
 """
 
-import httpx
 import openai
 import pytest
 
@@ -19,6 +18,17 @@ from kitab.translate.openai_like import (
 )
 
 
+def _bad_request(message):
+    """An openai.BadRequestError carrying ``message``.
+
+    Built without a response object: the SDK's HTTP library has changed (httpx,
+    then httpx2), and the engine reads nothing from the error but its text.
+    """
+    error = openai.BadRequestError.__new__(openai.BadRequestError)
+    Exception.__init__(error, message)
+    return error
+
+
 class FakeCompletions:
     def __init__(self, reject=None):
         self.requests = []
@@ -29,10 +39,7 @@ class FakeCompletions:
         self.requests.append(request)
         message = self.reject(request) if self.reject else None
         if message:
-            response = httpx.Response(
-                400, request=httpx.Request("POST", "https://api.test/v1")
-            )
-            raise openai.BadRequestError(message, response=response, body=None)
+            raise _bad_request(message)
         text = request["messages"][-1]["content"].rsplit("\n\n", 1)[-1]
         choice = type("C", (), {"message": type("M", (), {"content": "AR " + text})})
         return type("R", (), {"choices": [choice]})
