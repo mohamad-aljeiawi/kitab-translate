@@ -208,6 +208,26 @@ kitab book.pdf --service deepseek
 Keys come from the environment or `~/.config/kitab/config.json`, never from the
 repository. `kitab --engines` lists what each one wants.
 
+### Reasoning models
+
+For a reasoning model such as GPT-6 Luna, `--reasoning` sets how long it thinks
+before answering: `none`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`.
+The desktop app has the same choice next to the model name.
+
+```bash
+kitab book.pdf --service openai --model gpt-6-luna --reasoning low
+```
+
+- **Leave it unset** to use the model's own default (`medium` for Luna).
+- **`none`** is the fastest and cheapest, and plenty for most prose.
+- **Higher levels** cost more output tokens and help most with dense technical text.
+
+Each model accepts its own set of levels; GPT-6 Astra, for example, rejects `none`.
+If a model refuses the level you picked, the book stops with that message instead of
+failing every paragraph. `temperature` is sent only when the model is not reasoning,
+as OpenAI requires. The setting applies to `openai` and `openailiked`; DeepSeek picks
+reasoning by model name instead (`deepseek-reasoner`).
+
 ### Speed and rate limits
 
 Two independent knobs. `--workers` sets requests in flight, `--qps` sets requests started

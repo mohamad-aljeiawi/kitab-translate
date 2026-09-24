@@ -46,5 +46,11 @@ class TranslationFailed(KitabError):
     """A segment could not be translated after every retry and fallback."""
 
 
+class EngineConfigError(KitabError):
+    """The engine rejected how it was configured -- a model that does not accept the
+    requested reasoning effort, for instance. Every request would fail the same way,
+    so the run stops instead of failing each segment in turn."""
+
+
 class Cancelled(KitabError):
     """The job was asked to stop. Work files written so far are kept for a resume."""

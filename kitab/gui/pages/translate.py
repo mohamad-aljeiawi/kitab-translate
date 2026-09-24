@@ -30,12 +30,15 @@ from qfluentwidgets import (
     StrongBodyLabel,
 )
 
+from kitab.translate.registry import ENGINES
+
 from ..jobs import JobManager
 from ..settings import SecretStore, Settings, engine_defaults, engine_needs_key
 from ..ui import (
     ENGINE_LABELS,
     INPUT_SUFFIXES,
     LANGUAGES,
+    REASONING_LABELS,
     Page,
     engine_label,
     setting_row,
@@ -137,11 +140,19 @@ class TranslatePage(Page):
         self.engine = ComboBox()
         for name in ENGINE_LABELS:
             self.engine.addItem(engine_label(name), userData=name)
-        self.engine.setMinimumWidth(300)
+        self.engine.setFixedWidth(250)
         self.engine.currentIndexChanged.connect(self._on_engine_changed)
         self.model = LineEdit()
         self.model.setClearButtonEnabled(True)
-        self.model.setFixedWidth(200)
+        self.model.setFixedWidth(160)
+        self.reasoning = ComboBox()
+        for value, label in REASONING_LABELS.items():
+            self.reasoning.addItem(label, userData=value)
+        self.reasoning.setFixedWidth(210)
+        self.reasoning.setToolTip(
+            "How long a reasoning model thinks before it answers. Higher is slower "
+            "and costs more output tokens. Each model accepts its own set of levels."
+        )
         group.addSettingCard(
             setting_row(
                 FluentIcon.ROBOT,
@@ -149,6 +160,7 @@ class TranslatePage(Page):
                 "Keys and endpoints are set in Settings",
                 self.engine,
                 self.model,
+                self.reasoning,
             )
         )
 
@@ -256,6 +268,8 @@ class TranslatePage(Page):
         s.glossary = self.glossary.isChecked()
         s.tier1 = self.tier1.isChecked()
         s.ocr = self.ocr.isChecked()
+        if self._reasoning_supported():
+            s.engine(s.service).reasoning = self.reasoning.currentData() or ""
         s.save()
 
     def reload_engine(self) -> None:
@@ -271,6 +285,15 @@ class TranslatePage(Page):
         self.model.setEnabled(name != "google")
         self.model.setPlaceholderText(saved or default_model or "No model")
         self.model.clear()
+
+        supported = ENGINES[name].supports_reasoning
+        effort = self.settings.engine(name).reasoning if supported else ""
+        self.reasoning.setCurrentIndex(max(0, self.reasoning.findData(effort)))
+        self.reasoning.setEnabled(supported)
+
+    def _reasoning_supported(self) -> bool:
+        name = self.engine.currentData()
+        return bool(name) and ENGINES[name].supports_reasoning
 
     # ---- files ---------------------------------------------------------
 
@@ -393,6 +416,11 @@ class TranslatePage(Page):
             "api_key": key or None,
             "base_url": engine_settings.base_url or None,
             "workers": self.settings.workers or None,
+            "reasoning_effort": (
+                (self.reasoning.currentData() or None)
+                if self._reasoning_supported()
+                else None
+            ),
         }
 
         output = self.output.text().strip()

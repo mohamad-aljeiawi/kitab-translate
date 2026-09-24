@@ -20,6 +20,7 @@ from kitab import __version__
 from kitab.errors import KitabError
 from kitab.ingest.classify import classify
 from kitab.pipeline import Options, translate_book
+from kitab.translate.openai_like import REASONING_EFFORTS
 from kitab.translate.registry import DEFAULT_ENGINE, ENGINES
 
 
@@ -43,6 +44,15 @@ def _add_translate_arguments(parser: argparse.ArgumentParser) -> None:
     engine.add_argument("-m", "--model", default="", help="model name for LLM engines")
     engine.add_argument("--api-key", default=None, help="override the configured key")
     engine.add_argument("--base-url", default=None, help="override the endpoint")
+    engine.add_argument(
+        "-r",
+        "--reasoning",
+        dest="reasoning_effort",
+        default=None,
+        choices=REASONING_EFFORTS,
+        help="reasoning effort for reasoning models (openai, openailiked); the model "
+        "decides which levels it accepts. Default: the model's own",
+    )
     engine.add_argument(
         "--workers",
         type=int,
@@ -190,6 +200,7 @@ def _options(args: argparse.Namespace) -> Options:
         base_url=args.base_url,
         workers=args.workers,
         qps=args.qps,
+        reasoning_effort=args.reasoning_effort,
     )
 
 

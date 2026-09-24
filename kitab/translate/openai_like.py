@@ -25,7 +25,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from kitab.errors import BatchShapeError
+from kitab.errors import BatchShapeError, EngineConfigError
 from kitab.md.mask import CURLY
 
 from .base import ARABIC_SYSTEM_PROMPT, BaseTranslator
@@ -37,6 +37,12 @@ _LANG_NAMES = {
     "ja": "Japanese",
     "auto": "the source language",
 }
+
+#: Every value the Chat Completions ``reasoning_effort`` parameter takes. Which of
+#: them a model accepts is up to the model -- GPT-6 Luna and Sol take all but
+#: "minimal", GPT-6 Astra rejects "none" -- and an unsupported one is an HTTP 400,
+#: which is reported as an EngineConfigError rather than guessed around.
+REASONING_EFFORTS = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
 
 # Reasoning models wrap their answer after a think block; strip it before parsing.
 _THINK = re.compile(r"^<think>.*?</think>\s*", flags=re.DOTALL)
@@ -54,6 +60,7 @@ class OpenAITranslator(BaseTranslator):
     batch_size = 20
     max_batch_chars = 6000
     supports_glossary = True
+    supports_reasoning = True
     # 20 segments per request already amortises latency, so concurrency is about
     # keeping the pipe full rather than raw parallelism. Paid tiers differ wildly;
     # these are conservative and --workers/--qps override them.
@@ -73,7 +80,13 @@ class OpenAITranslator(BaseTranslator):
         temperature: float = 0.2,
         workers: int | None = None,
         qps: float | None = None,
+        reasoning_effort: str | None = None,
     ):
+        if reasoning_effort and reasoning_effort not in REASONING_EFFORTS:
+            raise EngineConfigError(
+                f"unknown reasoning effort {reasoning_effort!r}; choose from "
+                f"{', '.join(REASONING_EFFORTS)}"
+            )
         self.set_envs(envs)
         model = model or self.envs.get(self._model_env) or ""
         super().__init__(lang_in, lang_out, model, ignore_cache, glossary, workers, qps)
@@ -88,9 +101,19 @@ class OpenAITranslator(BaseTranslator):
             base_url=base_url or self.envs.get("OPENAI_BASE_URL"), api_key=key
         )
         self.temperature = temperature
+        #: None sends nothing and leaves the choice to the model's own default.
+        self.reasoning_effort = reasoning_effort or None
+        # A reasoning model accepts temperature only while it is not reasoning:
+        # OpenAI's guidance is to remove it whenever the effort is not "none". With
+        # no effort given the model's default decides, which cannot be known in
+        # advance, so it is sent and dropped on the first 400 that names it.
+        self._send_temperature = self.reasoning_effort in (None, "none")
 
         # Anything that can change the output is part of the cache key.
         self.add_cache_impact_parameters("temperature", temperature)
+        if self.reasoning_effort:
+            # Only when set, so rows cached before this option existed stay valid.
+            self.add_cache_impact_parameters("reasoning_effort", self.reasoning_effort)
         self.add_cache_impact_parameters("prompt_version", 1)
         self.add_cache_impact_parameters("glossary", sorted(self.glossary.items()))
 
@@ -148,12 +171,15 @@ class OpenAITranslator(BaseTranslator):
     )
     def _complete(self, messages: list[dict]) -> str:
         self.limiter.acquire()
+        request: dict = {"model": self.model, "messages": messages}
+        if self.reasoning_effort:
+            request["reasoning_effort"] = self.reasoning_effort
+        if self._send_temperature:
+            request["temperature"] = self.temperature
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-            )
+            response = self.client.chat.completions.create(**request)
+        except openai.BadRequestError as e:
+            return self._rejected(e, messages)
         except openai.RateLimitError:
             # Back the shared rate off before tenacity sleeps, so the other workers
             # slow down too. Retrying alone only re-times the same collision.
@@ -164,6 +190,25 @@ class OpenAITranslator(BaseTranslator):
         self.limiter.succeed()
         content = (response.choices[0].message.content or "").strip()
         return _THINK.sub("", content).strip()
+
+    def _rejected(self, error: "openai.BadRequestError", messages: list[dict]) -> str:
+        """Recover from a 400 that is about our parameters, or explain it."""
+        text = str(error).lower()
+        if "reasoning" in text and self.reasoning_effort:
+            raise EngineConfigError(
+                f"{self.name}: model {self.model!r} does not accept reasoning effort "
+                f"{self.reasoning_effort!r}. Choose another level, or leave it on "
+                f"the model default. ({error})"
+            ) from error
+        if "temperature" in text and self._send_temperature:
+            # The model reasons by default and will not take a temperature. Every
+            # worker shares this flag, so it is dropped once for the whole book.
+            self._send_temperature = False
+            logger.info(
+                "%s: %s takes no temperature; not sending it", self.name, self.model
+            )
+            return self._complete(messages)
+        raise error
 
     def do_translate(self, text: str) -> str:
         return self._complete(self._single_messages(text))
@@ -192,6 +237,8 @@ class OpenAITranslator(BaseTranslator):
 
 class DeepSeekTranslator(OpenAITranslator):
     name = "deepseek"
+    # DeepSeek chooses reasoning by model (deepseek-reasoner), not by parameter.
+    supports_reasoning = False
     envs = {
         "OPENAI_BASE_URL": "https://api.deepseek.com/v1",
         "DEEPSEEK_API_KEY": None,

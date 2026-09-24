@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kitab import progress
+from kitab.errors import EngineConfigError
 from kitab.figures import annotate
 from kitab.ingest import extract
 from kitab.md.ast import MarkdownDocument, restore_escaped_literals
@@ -37,6 +38,7 @@ from kitab.render.html import build_page
 from kitab.render.pdf_out import write_pdf
 from kitab.translate import get_translator
 from kitab.translate.base import BaseTranslator
+from kitab.translate.registry import ENGINES
 from kitab.translate.glossary import (
     build_glossary,
     load as load_glossary,
@@ -81,6 +83,9 @@ class Options:
     #: Requests started per second across all workers. None uses the engine's
     #: default; 0 disables the limiter entirely.
     qps: float | None = None
+    #: How hard a reasoning model thinks: none, minimal, low, medium, high, xhigh
+    #: or max, as the model allows. None leaves it to the model's default.
+    reasoning_effort: str | None = None
 
 
 @dataclass
@@ -335,6 +340,14 @@ def _build_translator(
         kwargs["api_key"] = options.api_key
     if options.base_url:
         kwargs["base_url"] = options.base_url
+    if options.reasoning_effort:
+        engine = ENGINES.get(options.service.lower())
+        if engine is not None and not engine.supports_reasoning:
+            raise EngineConfigError(
+                f"the {options.service} engine has no reasoning effort setting; "
+                f"use openai or openailiked, or leave it unset"
+            )
+        kwargs["reasoning_effort"] = options.reasoning_effort
 
     translator = get_translator(
         options.service,
