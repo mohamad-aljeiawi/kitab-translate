@@ -134,6 +134,7 @@ def translate_book(
             extractor=options.extractor,
             pages=options.pages,
             ocr=options.ocr,
+            tier1=options.tier1,
         )
         lang_in = options.lang_in
         report.stages["extract"] = {
@@ -147,9 +148,14 @@ def translate_book(
             extracted.backend,
         )
 
-        markdown, figures = annotate(
-            extracted.markdown, extract_dir, tier1=options.tier1
-        )
+        if extracted.figures is None:
+            markdown, figures = annotate(
+                extracted.markdown, extract_dir, tier1=options.tier1
+            )
+        else:
+            # The scanned backend already knows every figure and has already read its
+            # labels; annotating again would OCR the same crops a second time.
+            markdown, figures = extracted.markdown, extracted.figures
         report.figures_tier0 = sum(1 for f in figures if f.tier == 0)
         report.figures_tier1 = sum(1 for f in figures if f.tier == 1)
 

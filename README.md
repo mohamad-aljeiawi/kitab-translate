@@ -59,6 +59,12 @@ the Markdown by hand between any two stages. Re-running skips whatever is alread
 **Diagrams get Arabic legends.** Labels inside figures are read by OCR, translated and
 placed beneath the image, keyed by position. The artwork itself is never touched.
 
+**Books that are entirely pictures still work.** A scanned or screenshot PDF has no text
+layer at all, so kitab measures one: it reads each page, tells drawing apart from prose,
+crops every diagram out as a figure, and rebuilds headings and paragraphs from the
+geometry. Install `kitab[ocr]` and it happens automatically — the chart labels end up as
+Arabic legends rather than spliced into the middle of your sentences.
+
 **Nothing optional is required.** A missing extra makes the output worse and says so out
 loud. It never fails the run.
 
@@ -91,6 +97,8 @@ across correctly, in a form that adapts to whatever it gets read on.
 source (PDF / EPUB / HTML / Markdown)
    |  classify         what is this? does it need OCR?
    |  extract          structure, images, headings          -> Markdown
+   |                   image-only pages: OCR, then measure
+   |                   drawing vs prose                     -> Markdown + figure crops
    |  figures          OCR labels on diagrams               -> Arabic legend beneath
    |  segment          one unit per inline node             -> placeholders protect
    |                   formulas, code, links, numbers
@@ -126,7 +134,7 @@ Optional extras, each independent:
 |---|---|---|
 | `fast` | `pip install -e '.[fast]'` | `pymupdf4llm`, better PDF structure, CPU only |
 | `marker` | `pip install -e '.[marker]'` | Best PDF structure. Heavy (torch), needs Python 3.11/3.12 |
-| `ocr` | `pip install -e '.[ocr]'` | Scanned PDFs, and Tier-1 figure legends |
+| `ocr` | `pip install -e '.[ocr]'` | Image-only PDFs, and Tier-1 figure legends |
 | `pdf` | `pip install -e '.[pdf]'` then `playwright install chromium` | PDF output (~200 MB Chromium) |
 | `japanese` | `pip install -e '.[japanese]'` | Vertical Japanese OCR for figures |
 
@@ -263,7 +271,7 @@ Open problems, stated plainly. Help on any of these is welcome.
 | 4 | Vector figures are not extracted, only embedded rasters. A figure drawn with PDF path operators is lost by `builtin` | use `--backend marker` |
 | 5 | Footnotes are carried as text, not as linked EPUB footnotes | none yet |
 | 6 | The free Google engine is unofficial. It rate-limits and can stop working | use `--service deepseek` for anything long |
-| 7 | RapidOCR wiring is untested against real scans, and Tier-1 legends need a real diagram corpus | none yet |
+| 7 | Tier-1 legends need a real diagram corpus; on image-only books the heading signal is measured height, which is weaker than a font size | none yet |
 | 8 | No page-faithful mode, by design | use PDFMathTranslate |
 
 ## Contributing

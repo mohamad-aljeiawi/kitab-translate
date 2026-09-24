@@ -31,6 +31,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Text Processing :: Linguistic",
     "Topic :: Text Processing :: Markup :: Markdown",
     "Topic :: Utilities",
@@ -64,7 +65,11 @@ marker = ["marker-pdf>=1.0"]
 # Lightweight PDF -> Markdown fallback. Pure CPU.
 fast = ["pymupdf4llm>=0.0.17"]
 # Stage 3: OCR for scanned pages and Tier-1 figure legends. CPU, ONNX.
-ocr = ["rapidocr-onnxruntime>=1.3"]
+# rapidocr, not rapidocr-onnxruntime: the older package pins python<3.13, so on a
+# current interpreter the extra simply would not install. numpy is named explicitly
+# because ingest/scanned.py measures ink with it rather than relying on it arriving
+# as somebody else's transitive dependency.
+ocr = ["rapidocr>=2.0", "onnxruntime>=1.17", "numpy>=1.24"]
 # Stage 6: PDF output via headless Chromium.
 pdf = ["playwright>=1.40"]
 # Japanese vertical OCR (figure legends in JA sources).

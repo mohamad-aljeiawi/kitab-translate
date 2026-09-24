@@ -73,7 +73,10 @@ def _add_translate_arguments(parser: argparse.ArgumentParser) -> None:
     )
     ingest.add_argument("--pages", default=None, help='page range, e.g. "1-20,35"')
     ingest.add_argument(
-        "--ocr", action="store_true", help="OCR scanned pages (needs kitab[ocr])"
+        "--ocr",
+        action="store_true",
+        help="force OCR (used automatically on scanned PDFs when kitab[ocr] is "
+        "installed)",
     )
     ingest.add_argument(
         "--no-tier1",
@@ -200,8 +203,14 @@ def _run_inspect(path: Path) -> int:
     print(f"title     {info.title}")
     if info.needs_ocr:
         print()
-        print("This looks scanned. Translating it needs --ocr and the OCR extra:")
-        print("    pip install 'kitab[ocr]'")
+        from kitab.ingest.ocr import available as ocr_available
+
+        if ocr_available():
+            print("This looks scanned; kitab will OCR it, find its figures and")
+            print("read their labels into Arabic legends.")
+        else:
+            print("This looks scanned. Translating it needs the OCR extra:")
+            print("    pip install 'kitab[ocr]'")
         print("Expect seconds per page rather than a whole book in a minute.")
     return 0
 
