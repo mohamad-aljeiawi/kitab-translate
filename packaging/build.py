@@ -82,6 +82,7 @@ def main() -> int:
     _pyinstaller()
 
     folder = DIST / "kitab"
+    _check_bundle(folder)
     if WINDOWS:
         _portable_zip(folder, version)
         if not args.no_installer:
@@ -221,6 +222,33 @@ def _pyinstaller() -> None:
             str(BUILD / "pyinstaller"),
         ]
     )
+
+
+# Files that are loaded at run time rather than imported, so PyInstaller's import
+# analysis cannot see them. A build missing any of them starts fine and then fails
+# on the first book that needs it, which is exactly how the layout models went
+# missing in 0.2.0. Checked here so that cannot ship again.
+REQUIRED = [
+    ("kitab/render/assets/template.html.j2", "HTML template"),
+    ("kitab/render/assets/fonts/NotoNaskhArabic-Regular.ttf", "Arabic font"),
+    ("kitab/gui/assets/icon.svg", "app icon"),
+    ("rapidocr/models/*.onnx", "OCR models"),
+    ("pymupdf/layout/resources/onnx/*.yaml", "PDF layout model configs"),
+    ("pymupdf/layout/resources/onnx/*.onnx", "PDF layout models"),
+    ("playwright/driver/package/cli.js", "Playwright driver"),
+]
+
+
+def _check_bundle(folder: Path) -> None:
+    internal = folder / "_internal"
+    missing = [
+        f"{what} ({pattern})"
+        for pattern, what in REQUIRED
+        if not any(internal.glob(pattern))
+    ]
+    if missing:
+        sys.exit("the bundle is missing:\n  " + "\n  ".join(missing))
+    print(f"== bundle check: {len(REQUIRED)} runtime data sets present")
 
 
 # ---------------------------------------------------------------- Windows
