@@ -29,11 +29,18 @@ class SlowTranslator(BaseTranslator):
         self.delay = delay
         self.threads = set()
         self._lock = threading.Lock()
+        self._in_flight = 0
+        #: Most requests that were ever sleeping at the same moment.
+        self.peak_in_flight = 0
 
     def do_translate(self, text: str) -> str:
-        time.sleep(self.delay)
         with self._lock:
             self.threads.add(threading.get_ident())
+            self._in_flight += 1
+            self.peak_in_flight = max(self.peak_in_flight, self._in_flight)
+        time.sleep(self.delay)
+        with self._lock:
+            self._in_flight -= 1
         return "AR " + text
 
 
@@ -111,13 +118,14 @@ def test_pool_actually_runs_in_parallel():
     translator = SlowTranslator("en", ignore_cache=True, workers=4, delay=0.05)
     sources = [f"segment {i}" for i in range(16)]
 
-    started = time.monotonic()
     translator.translate_many(sources)
-    elapsed = time.monotonic() - started
 
     assert len(translator.threads) > 1, "no concurrency: everything ran on one thread"
-    # 16 x 50ms is 0.8s sequential; four workers should land well under that.
-    assert elapsed < 0.6
+    # Overlap, not wall-clock time: a timing bound (16 x 50ms sequential, so
+    # "under 0.6s") failed on busy CI runners while the pool was working. Requests
+    # that sleep at the same moment can only mean they ran in parallel.
+    assert translator.peak_in_flight >= 2
+    assert translator.peak_in_flight <= 4, "more requests in flight than workers"
 
 
 def test_single_worker_stays_sequential():
