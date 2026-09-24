@@ -24,6 +24,9 @@ datas = [
 datas += collect_data_files("kitab")
 # The ONNX models, downloaded into the package by build.py before this runs.
 datas += collect_data_files("rapidocr")
+# PyMuPDF's layout analyser, which pymupdf4llm (the "fast" extractor) loads on
+# import: its ONNX models and their YAML configs. Not its C headers.
+datas += collect_data_files("pymupdf", includes=["layout/**"])
 # Playwright's Node driver. No browser: PDFs print with the Edge, Chrome or
 # Chromium already on the machine (kitab.render.pdf_out.system_browser).
 datas += collect_data_files("playwright", includes=["driver/**"])
