@@ -137,6 +137,59 @@ Optional extras, each independent:
 | `ocr` | `pip install -e '.[ocr]'` | Image-only PDFs, and Tier-1 figure legends |
 | `pdf` | `pip install -e '.[pdf]'` then `playwright install chromium` | PDF output (~200 MB Chromium) |
 | `japanese` | `pip install -e '.[japanese]'` | Vertical Japanese OCR for figures |
+| `gui` | `pip install -e '.[gui]'` then `kitab-gui` | The desktop app, run from source |
+
+## Desktop app
+
+A window for everything the command line does. You can queue several books and they
+run side by side with live progress. The Stop button keeps the work done so far, so
+the book resumes from that point next time. API keys are kept in the system keyring,
+not in a file.
+
+**Download:** the [releases page](https://github.com/mohamad-aljeiawi/kitab-translate/releases)
+has a Windows installer (`Kitab-<version>-windows-x64-setup.exe`, no administrator
+rights needed), a portable Windows zip, and a Linux AppImage that runs on Ubuntu 22.04+,
+Mint 21+ and Arch:
+
+```bash
+chmod +x Kitab-*-x86_64.AppImage
+./Kitab-*-x86_64.AppImage                  # the window
+./Kitab-*-x86_64.AppImage --cli book.pdf   # the same build as a command line
+```
+
+The Windows build ships `kitab-cli.exe` next to `kitab.exe` for the same purpose.
+
+The builds include OCR and the lightweight PDF extractor. They leave out `marker` and
+`japanese`, which need torch (2 GB+); use those from a source install. PDF output
+prints through a browser that is already installed: Edge (on every Windows 11),
+Chrome, Chromium or Brave.
+
+**Where things live**
+
+| | Windows | Linux |
+|---|---|---|
+| Settings | `%APPDATA%\kitab\gui.json` | `~/.config/kitab/gui.json` |
+| API keys | Windows Credential Manager | GNOME Keyring / KWallet (Secret Service) |
+| Work files | `%LOCALAPPDATA%\kitab\Cache\work` | `~/.cache/kitab/work` |
+
+With no keyring running (a bare window manager on Arch, for instance), keys go to
+`secrets.json` in the settings folder, readable only by you, and the Settings page
+says so.
+
+**Building it yourself** takes one command on the platform you are building for:
+
+```bash
+python packaging/build.py
+```
+
+The script creates its own Python 3.12 environment in `.venv-build`, using
+[uv](https://docs.astral.sh/uv/) if it is installed, and leaves your development
+environment alone. It then runs PyInstaller and wraps the result: an installer via
+[Inno Setup](https://jrsoftware.org/isinfo.php) on Windows (skipped if Inno Setup is
+missing), or an AppImage on Linux. PyInstaller cannot cross-compile, so build the
+Linux version on Linux. Build it on the oldest distro you want to support, because
+the AppImage needs a glibc at least as new as the one it was built on. Pushing a `v*`
+tag makes CI build both and attach them to a draft release.
 
 ## Engines
 

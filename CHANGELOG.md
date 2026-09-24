@@ -13,6 +13,38 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `--sample N` for a cheap first look at a long book.
 - Linked EPUB footnotes.
 
+## [0.2.0] - 2026-09-25
+
+### Added
+- Desktop app for Windows and Linux (`kitab-gui`, or the packaged builds). Queue
+  several books and they run side by side, each in its own process, with live progress
+  by stage. Stop keeps the work done so far and Retry resumes from there.
+- Settings page: theme, how many books run at once, requests in flight, PDF page size,
+  and the key, model and endpoint for each engine. The last options used on the
+  Translate page are remembered.
+- API keys are stored in Windows Credential Manager or the Linux Secret Service
+  (GNOME Keyring, KWallet). With no keyring, they fall back to a file readable only by
+  the user, and the app says so.
+- Packaged builds: a Windows installer (per-user, no administrator rights) and portable
+  zip, and a Linux AppImage for Ubuntu 22.04+, Mint 21+ and Arch. Each ships the
+  command line too (`kitab-cli.exe`, or `Kitab.AppImage --cli`).
+- `python packaging/build.py` builds either one in a single command. Pushing a `v*` tag
+  builds both in CI and attaches them to a release.
+- Image-only PDFs. Pages are OCR'd, diagrams are separated from prose and cropped out
+  as figures, and headings and paragraphs are rebuilt from the page geometry. This runs
+  automatically on scanned PDFs when the `ocr` extra is installed.
+
+### Changed
+- PDF output falls back to an installed Edge, Chrome, Chromium or Brave when
+  Playwright's own Chromium is missing.
+- Stage files are written to a temporary file and renamed into place, so an
+  interrupted run never leaves half a file behind.
+- The `ocr` extra uses `rapidocr` + `onnxruntime`, which install on Python 3.13+.
+
+### Fixed
+- CI installed a `dev` extra that does not exist, so pytest was never installed and
+  every test job failed.
+
 ## [0.1.0] - 2026-09-14
 
 First public release.
@@ -38,5 +70,6 @@ First public release.
 - CLI flags including `--inspect`, `--engines`, `--bilingual`, `--pages` and `--force`.
 - 69 tests running against a fake engine, with no key and no network.
 
-[Unreleased]: https://github.com/mohamad-aljeiawi/kitab-translate/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mohamad-aljeiawi/kitab-translate/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/mohamad-aljeiawi/kitab-translate/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/mohamad-aljeiawi/kitab-translate/releases/tag/v0.1.0

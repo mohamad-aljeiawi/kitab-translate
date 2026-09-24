@@ -27,6 +27,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from kitab import progress
 from kitab.figures import annotate
 from kitab.ingest import extract
 from kitab.md.ast import MarkdownDocument, restore_escaped_literals
@@ -128,6 +129,7 @@ def translate_book(
         )
         translator = _build_translator(options, document, glossary_path)
     else:
+        progress.stage("extract")
         extracted = extract(
             source,
             extract_dir,
@@ -188,6 +190,9 @@ def translate_book(
         logger.info("reusing %s", translated_path.name)
     else:
         started = time.monotonic()
+        progress.stage(
+            "translate", sum(1 for s in document.segments if not s.translated)
+        )
         _translate_segments(document.segments, translator)
         document.save(translated_path)
         report.stages["translate"] = {
@@ -205,6 +210,7 @@ def translate_book(
     report.segments_failed = sum(1 for s in document.segments if s.status == "failed")
 
     # ---- stage 5: rebuild ---------------------------------------------
+    progress.stage("rebuild")
     parsed = MarkdownDocument(document.markdown)
     parsed.build_segments(
         translator.mask_style,
@@ -266,6 +272,7 @@ def translate_book(
 
     stem = f"{source.stem}.ar"
     if options.epub:
+        progress.stage("epub")
         try:
             result.epub_path = write_epub(
                 translated_markdown,
@@ -282,6 +289,7 @@ def translate_book(
             logger.error("EPUB output failed: %s", e)
 
     if options.pdf:
+        progress.stage("pdf")
         try:
             result.pdf_path = write_pdf(
                 html_path,
@@ -345,6 +353,7 @@ def _build_translator(
 
     glossary = load_glossary(glossary_path)
     if not glossary and document.markdown:
+        progress.stage("glossary")
         logger.info("building the glossary (one pass over the whole book)")
         glossary = build_glossary(
             document.markdown, translator, min_count=options.glossary_min_count

@@ -89,6 +89,20 @@ column, and figures land where the reflow puts them.
 | `kitab/render/pdf_out.py` | Chromium / WeasyPrint | new |
 | `kitab/pipeline.py` | stage orchestration, resume, reporting | new |
 | `kitab/cli.py` | command line | new |
+| `kitab/progress.py` | stage/progress events, cooperative cancellation | new |
+| `kitab/gui/` | desktop app: job queue, settings, keyring (PySide6) | new |
+
+**The desktop app** runs each book in its own process (`gui/worker.py`), started with
+`spawn` on every platform, because forking a process that has Qt loaded is unsafe. A
+single multiprocessing queue carries plain tuples back to the window: progress, log
+lines, and the final result. The pipeline itself knows nothing about the GUI. It
+calls `progress.stage()`, `progress.advance()` and `progress.check()`, and those do
+nothing unless a job process has installed a sink. `check()` raises `Cancelled` only
+between OCR pages, translation batches and stages. At those points the work directory
+is consistent and the cache holds every finished batch, so Stop followed by Retry
+resumes rather than restarts. Stage files are written to a temporary file and then
+renamed into place, so a job that has to be killed outright cannot leave half a file
+behind.
 
 ---
 

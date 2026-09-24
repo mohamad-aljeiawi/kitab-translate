@@ -28,6 +28,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from kitab import progress
 from kitab.models import Figure
 
 from .ocr import MIN_CONFIDENCE, RENDER_DPI, OcrLine, describe, get_engine, ocr_image
@@ -127,7 +128,9 @@ def extract_scanned(
 
     with pymupdf.open(path) as doc:
         numbers = _clamp_pages(_page_list(pages), doc.page_count, path)
+        progress.stage("ocr", len(numbers))
         for page_no in numbers:
+            progress.check()
             page = doc[page_no]
             dpi = _render_dpi(page)
             scale = dpi / 72.0
@@ -175,6 +178,7 @@ def extract_scanned(
                 dpi,
             )
             image_path.unlink(missing_ok=True)
+            progress.advance()
 
         pages_done = len(page_flow)
 

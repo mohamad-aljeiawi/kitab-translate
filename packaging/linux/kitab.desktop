@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Kitab
+GenericName=Book translator
+Comment=Translate English and Japanese books into Arabic
+Comment[ar]=ترجمة الكتب من الإنجليزية واليابانية إلى العربية
+Exec=kitab %F
+Icon=kitab
+Terminal=false
+Categories=Office;
+MimeType=application/pdf;application/epub+zip;text/markdown;text/plain;text/html;
+Keywords=translate;arabic;epub;pdf;ocr;book;
+StartupWMClass=kitab

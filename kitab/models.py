@@ -89,7 +89,11 @@ class Document:
         )
 
     def save(self, path: Path) -> None:
-        path.write_text(self.to_json(), encoding="utf-8")
+        # Write-then-rename: a stage file is how a run resumes, so a process killed
+        # mid-write must leave the previous file or none, never half of one.
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(self.to_json(), encoding="utf-8")
+        tmp.replace(path)
 
     @classmethod
     def load(cls, path: Path) -> "Document":
