@@ -7,6 +7,14 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Planned
+- Previous-paragraph context in the translation prompt.
+- A quality report that flags suspiciously short or long translations.
+- `--sample N` for a cheap first look at a long book.
+- Linked EPUB footnotes.
+
+## [0.3.0] - 2026-09-25
+
 ### Added
 - Reasoning effort for OpenAI and OpenAI-compatible reasoning models such as GPT-6
   Luna: `--reasoning none|minimal|low|medium|high|xhigh|max`, and a menu next to the
@@ -20,12 +28,6 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The packaged app failed on every digital PDF: PyMuPDF's layout models, which the
   fast extractor loads at run time, were missing from the bundle. The build now also
   checks for every data set loaded at run time and refuses to finish without them.
-
-### Planned
-- Previous-paragraph context in the translation prompt.
-- A quality report that flags suspiciously short or long translations.
-- `--sample N` for a cheap first look at a long book.
-- Linked EPUB footnotes.
 
 ## [0.2.0] - 2026-09-25
 
@@ -84,6 +86,7 @@ First public release.
 - CLI flags including `--inspect`, `--engines`, `--bilingual`, `--pages` and `--force`.
 - 69 tests running against a fake engine, with no key and no network.
 
-[Unreleased]: https://github.com/mohamad-aljeiawi/kitab-translate/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/mohamad-aljeiawi/kitab-translate/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/mohamad-aljeiawi/kitab-translate/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mohamad-aljeiawi/kitab-translate/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/mohamad-aljeiawi/kitab-translate/releases/tag/v0.1.0
