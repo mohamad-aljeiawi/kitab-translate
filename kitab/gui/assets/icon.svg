@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#17866f"/>
+      <stop offset="1" stop-color="#0b5345"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <!-- open book -->
+  <path d="M128 78 C104 62 74 58 44 62 V186 C74 182 104 186 128 202 Z" fill="#ffffff"/>
+  <path d="M128 78 C152 62 182 58 212 62 V186 C182 182 152 186 128 202 Z" fill="#e6f4f0"/>
+  <!-- lines on the right-hand page read right to left -->
+  <path d="M192 90 H148 M192 110 H148 M192 130 H158 M192 150 H148" stroke="#17866f" stroke-width="9" stroke-linecap="round"/>
+  <path d="M64 92 H108 M64 112 H108 M64 132 H98" stroke="#9fbfb7" stroke-width="9" stroke-linecap="round"/>
+</svg>

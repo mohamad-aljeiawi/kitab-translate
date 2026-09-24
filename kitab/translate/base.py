@@ -26,6 +26,7 @@ import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Iterable, Sequence
 
+from kitab import progress
 from kitab.cache import TranslationCache
 from kitab.config import ConfigManager
 from kitab.md.mask import CURLY, MaskStyle
@@ -165,6 +166,8 @@ class BaseTranslator:
                     continue
             pending.append(i)
 
+        if len(pending) < len(texts):
+            progress.advance(len(texts) - len(pending))
         groups = list(self._group(pending, texts))
         if not groups:
             return [r if r is not None else "" for r in results]
@@ -180,10 +183,14 @@ class BaseTranslator:
                     pool.submit(self._run_group, group, texts, results)
                     for group in groups
                 ]
-                for future in as_completed(futures):
-                    # _run_group never raises; this re-raises only a genuine bug in it,
-                    # which should stop the run rather than silently lose a chapter.
-                    future.result()
+                try:
+                    for future in as_completed(futures):
+                        # _run_group raises only on cancellation or a genuine bug in
+                        # it; both should stop the run rather than lose a chapter.
+                        future.result()
+                except BaseException:
+                    pool.shutdown(wait=True, cancel_futures=True)
+                    raise
 
         return [r if r is not None else "" for r in results]
 
@@ -195,6 +202,9 @@ class BaseTranslator:
         Writing into a preallocated list from several threads is safe here: each group
         owns a disjoint set of indices, and CPython list item assignment is atomic.
         """
+        # A cancelled job stops between batches: every finished batch is already in
+        # the cache, so the resumed run starts where this one stopped.
+        progress.check()
         sources = [texts[i] for i in group]
         try:
             translations = self.do_translate_batch(sources)
@@ -227,6 +237,7 @@ class BaseTranslator:
             results[index] = translation
             if translation:
                 self.cache.set(source, translation)
+        progress.advance(len(group))
 
     def _group(self, indices: list[int], texts: Sequence[str]) -> Iterable[list[int]]:
         """Split pending indices into request-sized batches."""

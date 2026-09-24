@@ -1,0 +1,92 @@
+name: Desktop build
+
+# Every push of a v* tag builds the Windows installer and the Linux AppImage and
+# attaches them to a GitHub release. Run it by hand to get the files as workflow
+# artifacts without releasing anything.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-latest
+          # The oldest supported base, on purpose: the AppImage needs a glibc at
+          # least as new as the one it was built against, so building here makes
+          # it run on Ubuntu 22.04+, Mint 21+ and Arch alike.
+          - name: Linux x86_64
+            os: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        # Qt's xcb platform plugin links against these; installed here so
+        # PyInstaller bundles them and the AppImage does not depend on the host
+        # having them (libxcb-cursor0 is missing from a default Ubuntu 22.04).
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+            libxcb-xkb1 libxkbcommon-x11-0 libegl1 libdbus-1-3 libfontconfig1 \
+            file desktop-file-utils
+
+      - name: Inno Setup
+        if: runner.os == 'Windows'
+        run: choco install innosetup --no-progress -y
+
+      - name: Build
+        run: python packaging/build.py
+
+      # The frozen build has to start and find its bundled files before anything
+      # is published: the CLI reads a book, and on Linux the window must come up
+      # (offscreen) and still be running when the timeout stops it.
+      - name: Smoke test
+        shell: bash
+        run: |
+          dist/kitab/kitab-cli --version
+          dist/kitab/kitab-cli samples/abstraction.md --inspect
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            status=0
+            QT_QPA_PLATFORM=offscreen timeout 20 dist/kitab/kitab || status=$?
+            test "$status" -eq 124
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kitab-${{ runner.os }}
+          path: |
+            dist/*.exe
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.tar.gz
+          if-no-files-found: error
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            dist/*.exe
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.tar.gz

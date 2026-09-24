@@ -59,6 +59,12 @@ the Markdown by hand between any two stages. Re-running skips whatever is alread
 **Diagrams get Arabic legends.** Labels inside figures are read by OCR, translated and
 placed beneath the image, keyed by position. The artwork itself is never touched.
 
+**Books that are entirely pictures still work.** A scanned or screenshot PDF has no text
+layer at all, so kitab measures one: it reads each page, tells drawing apart from prose,
+crops every diagram out as a figure, and rebuilds headings and paragraphs from the
+geometry. Install `kitab[ocr]` and it happens automatically — the chart labels end up as
+Arabic legends rather than spliced into the middle of your sentences.
+
 **Nothing optional is required.** A missing extra makes the output worse and says so out
 loud. It never fails the run.
 
@@ -91,6 +97,8 @@ across correctly, in a form that adapts to whatever it gets read on.
 source (PDF / EPUB / HTML / Markdown)
    |  classify         what is this? does it need OCR?
    |  extract          structure, images, headings          -> Markdown
+   |                   image-only pages: OCR, then measure
+   |                   drawing vs prose                     -> Markdown + figure crops
    |  figures          OCR labels on diagrams               -> Arabic legend beneath
    |  segment          one unit per inline node             -> placeholders protect
    |                   formulas, code, links, numbers
@@ -126,9 +134,62 @@ Optional extras, each independent:
 |---|---|---|
 | `fast` | `pip install -e '.[fast]'` | `pymupdf4llm`, better PDF structure, CPU only |
 | `marker` | `pip install -e '.[marker]'` | Best PDF structure. Heavy (torch), needs Python 3.11/3.12 |
-| `ocr` | `pip install -e '.[ocr]'` | Scanned PDFs, and Tier-1 figure legends |
+| `ocr` | `pip install -e '.[ocr]'` | Image-only PDFs, and Tier-1 figure legends |
 | `pdf` | `pip install -e '.[pdf]'` then `playwright install chromium` | PDF output (~200 MB Chromium) |
 | `japanese` | `pip install -e '.[japanese]'` | Vertical Japanese OCR for figures |
+| `gui` | `pip install -e '.[gui]'` then `kitab-gui` | The desktop app, run from source |
+
+## Desktop app
+
+A window for everything the command line does. You can queue several books and they
+run side by side with live progress. The Stop button keeps the work done so far, so
+the book resumes from that point next time. API keys are kept in the system keyring,
+not in a file.
+
+**Download:** the [releases page](https://github.com/mohamad-aljeiawi/kitab-translate/releases)
+has a Windows installer (`Kitab-<version>-windows-x64-setup.exe`, no administrator
+rights needed), a portable Windows zip, and a Linux AppImage that runs on Ubuntu 22.04+,
+Mint 21+ and Arch:
+
+```bash
+chmod +x Kitab-*-x86_64.AppImage
+./Kitab-*-x86_64.AppImage                  # the window
+./Kitab-*-x86_64.AppImage --cli book.pdf   # the same build as a command line
+```
+
+The Windows build ships `kitab-cli.exe` next to `kitab.exe` for the same purpose.
+
+The builds include OCR and the lightweight PDF extractor. They leave out `marker` and
+`japanese`, which need torch (2 GB+); use those from a source install. PDF output
+prints through a browser that is already installed: Edge (on every Windows 11),
+Chrome, Chromium or Brave.
+
+**Where things live**
+
+| | Windows | Linux |
+|---|---|---|
+| Settings | `%APPDATA%\kitab\gui.json` | `~/.config/kitab/gui.json` |
+| API keys | Windows Credential Manager | GNOME Keyring / KWallet (Secret Service) |
+| Work files | `%LOCALAPPDATA%\kitab\Cache\work` | `~/.cache/kitab/work` |
+
+With no keyring running (a bare window manager on Arch, for instance), keys go to
+`secrets.json` in the settings folder, readable only by you, and the Settings page
+says so.
+
+**Building it yourself** takes one command on the platform you are building for:
+
+```bash
+python packaging/build.py
+```
+
+The script creates its own Python 3.12 environment in `.venv-build`, using
+[uv](https://docs.astral.sh/uv/) if it is installed, and leaves your development
+environment alone. It then runs PyInstaller and wraps the result: an installer via
+[Inno Setup](https://jrsoftware.org/isinfo.php) on Windows (skipped if Inno Setup is
+missing), or an AppImage on Linux. PyInstaller cannot cross-compile, so build the
+Linux version on Linux. Build it on the oldest distro you want to support, because
+the AppImage needs a glibc at least as new as the one it was built on. Pushing a `v*`
+tag makes CI build both and attach them to a draft release.
 
 ## Engines
 
@@ -263,7 +324,7 @@ Open problems, stated plainly. Help on any of these is welcome.
 | 4 | Vector figures are not extracted, only embedded rasters. A figure drawn with PDF path operators is lost by `builtin` | use `--backend marker` |
 | 5 | Footnotes are carried as text, not as linked EPUB footnotes | none yet |
 | 6 | The free Google engine is unofficial. It rate-limits and can stop working | use `--service deepseek` for anything long |
-| 7 | RapidOCR wiring is untested against real scans, and Tier-1 legends need a real diagram corpus | none yet |
+| 7 | Tier-1 legends need a real diagram corpus; on image-only books the heading signal is measured height, which is weaker than a font size | none yet |
 | 8 | No page-faithful mode, by design | use PDFMathTranslate |
 
 ## Contributing

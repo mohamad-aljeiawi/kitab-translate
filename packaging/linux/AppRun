@@ -1,0 +1,10 @@
+#!/bin/sh
+# AppImage entry point. The PyInstaller folder lives in usr/lib/kitab.
+HERE="$(dirname "$(readlink -f "$0")")"
+
+# `Kitab.AppImage --cli book.pdf` runs the command line instead of the window.
+if [ "$1" = "--cli" ]; then
+    shift
+    exec "$HERE/usr/lib/kitab/kitab-cli" "$@"
+fi
+exec "$HERE/usr/lib/kitab/kitab" "$@"

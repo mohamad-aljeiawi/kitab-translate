@@ -135,8 +135,6 @@ def _extract_builtin(path: Path, images_dir: Path, pages: str | None) -> Extract
     import pymupdf
 
     wanted = _page_list(pages)
-    parts: list[str] = []
-    size_chars: Counter[int] = Counter()
     page_lines: list[list[_Line]] = []
     page_heights: list[float] = []
     image_refs: dict[int, list[str]] = {}
@@ -159,15 +157,6 @@ def _extract_builtin(path: Path, images_dir: Path, pages: str | None) -> Extract
                         continue
                     lines.append(built)
             lines = _assemble_lines(lines, page.rect.width)
-            for built in lines:
-                # Code is excluded: a page of listings would otherwise make the
-                # 8pt monospace face the "body" size and turn all the prose
-                # around it into headings.
-                if not built.is_code:
-                    # round(), not int(): _heading_level rounds too, and 16.9
-                    # truncating to 16 while it looks up 17 made whole heading
-                    # levels silently disappear.
-                    size_chars[int(round(built.size))] += len(built.text)
             page_lines.append(lines)
             page_heights.append(page.rect.height)
             image_refs[page_no] = _export_images(doc, page, page_no, images_dir)
@@ -175,6 +164,49 @@ def _extract_builtin(path: Path, images_dir: Path, pages: str | None) -> Extract
         pages_done = len(page_lines)
 
     page_lines = _strip_furniture(page_lines, page_heights)
+    extras = {
+        page_no: [(_END_OF_PAGE, f"![]({ref})") for ref in refs]
+        for page_no, refs in image_refs.items()
+    }
+    parts = assemble_pages(page_lines, page_numbers, extras)
+    markdown = "\n\n".join(p for p in parts if p.strip())
+    return Extraction(
+        markdown=markdown,
+        images_dir=images_dir,
+        backend="builtin",
+        pages=pages_done,
+    )
+
+
+#: An extra with this y position is emitted after everything else on its page.
+_END_OF_PAGE = float("inf")
+
+
+def assemble_pages(
+    page_lines: list[list["_Line"]],
+    page_numbers: list[int],
+    extras: dict[int, list[tuple[float, str]]] | None = None,
+) -> list[str]:
+    """Sized, positioned lines -> Markdown parts.
+
+    Shared by the builtin backend and the OCR backend, which is the whole point: a
+    scanned page and a digital one differ in how their lines are *found*, not in how
+    headings, paragraphs, columns and lists are recovered from them. Everything below
+    works off geometry and size, so OCR boxes feed it as well as font spans do.
+
+    ``extras`` injects ready-made Markdown -- an image, a figure legend -- at a y
+    position on a page, so a figure lands between the paragraphs it sits between
+    rather than at the end of the page.
+    """
+    parts: list[str] = []
+    size_chars: Counter[int] = Counter()
+    for lines in page_lines:
+        for line in lines:
+            # Code is excluded: a page of listings would otherwise make the 8pt
+            # monospace face the "body" size and turn the prose around it into
+            # headings.
+            if not line.is_code:
+                size_chars[int(round(line.size))] += len(line.text)
 
     body_size = size_chars.most_common(1)[0][0] if size_chars else 10
     heading_sizes = sorted({s for s in size_chars if s > body_size + 0.5}, reverse=True)
@@ -182,10 +214,17 @@ def _extract_builtin(path: Path, images_dir: Path, pages: str | None) -> Extract
     for offset, lines in enumerate(page_lines):
         page_no = page_numbers[offset]
         lines = _merge_orphan_bullets(lines)
+        pending = sorted((extras or {}).get(page_no, []), key=lambda e: e[0])
         buffer: list[_Line] = []
         code: list[_Line] = []
         heading: list[_Line] = []
         heading_level = 0
+
+        def flush_buffer() -> None:
+            nonlocal buffer
+            if buffer:
+                parts.append(_join_paragraph(buffer))
+                buffer = []
 
         def flush_code() -> None:
             if code:
@@ -197,14 +236,25 @@ def _extract_builtin(path: Path, images_dir: Path, pages: str | None) -> Extract
                 parts.append(f"{'#' * heading_level} {_join_paragraph(heading)}")
                 heading.clear()
 
+        def flush_extras(before: float) -> None:
+            """Emit every extra that belongs above ``before``.
+
+            An extra closes whatever is open: a figure between two paragraphs
+            separates them, and joining across it would be wrong.
+            """
+            while pending and pending[0][0] <= before:
+                flush_buffer()
+                flush_heading()
+                flush_code()
+                parts.append(pending.pop(0)[1])
+
         for line in lines:
+            flush_extras(line.bbox[1])
             # Code first, and unconditionally: a listing line can be short, bold and
             # large enough to look like a heading, and misreading one as a heading
             # sends it to the translation engine.
             if line.is_code or (code and line.is_bare_number):
-                if buffer:
-                    parts.append(_join_paragraph(buffer))
-                    buffer = []
+                flush_buffer()
                 flush_heading()
                 code.append(line)
                 continue
@@ -214,9 +264,7 @@ def _extract_builtin(path: Path, images_dir: Path, pages: str | None) -> Extract
                 line.size, line.bold, body_size, heading_sizes, line.text
             )
             if level:
-                if buffer:
-                    parts.append(_join_paragraph(buffer))
-                    buffer = []
+                flush_buffer()
                 # A chapter title set over two lines is one heading, not two. Emitted
                 # separately they become two <h1>s, and with a page break before each
                 # the first is stranded alone on an otherwise empty page.
@@ -236,9 +284,7 @@ def _extract_builtin(path: Path, images_dir: Path, pages: str | None) -> Extract
             if _BULLET_LEAD.match(line.text):
                 # A real list item: close the paragraph and emit Markdown, so the
                 # renderer produces a <li> instead of a stray glyph in the prose.
-                if buffer:
-                    parts.append(_join_paragraph(buffer))
-                    buffer = []
+                flush_buffer()
                 parts.append(f"- {_BULLET_LEAD.sub('', line.text)}")
                 continue
             if buffer and (
@@ -246,24 +292,14 @@ def _extract_builtin(path: Path, images_dir: Path, pages: str | None) -> Extract
                 or buffer[-1].fielded
                 or _starts_new_paragraph(buffer[-1], line, body_size)
             ):
-                parts.append(_join_paragraph(buffer))
-                buffer = []
+                flush_buffer()
             buffer.append(line)
-        if buffer:
-            parts.append(_join_paragraph(buffer))
+        flush_buffer()
         flush_heading()
         flush_code()
-        for ref in image_refs.get(page_no, []):
-            parts.append(f"![]({ref})")
+        flush_extras(_END_OF_PAGE)
 
-    parts = _promote_chapter_lines(parts, pages_done)
-    markdown = "\n\n".join(p for p in parts if p.strip())
-    return Extraction(
-        markdown=markdown,
-        images_dir=images_dir,
-        backend="builtin",
-        pages=pages_done,
-    )
+    return _promote_chapter_lines(parts, len(page_lines))
 
 
 # ---------------------------------------------------------------- helpers

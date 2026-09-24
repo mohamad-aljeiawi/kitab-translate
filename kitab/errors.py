@@ -44,3 +44,7 @@ class BatchShapeError(KitabError):
 
 class TranslationFailed(KitabError):
     """A segment could not be translated after every retry and fallback."""
+
+
+class Cancelled(KitabError):
+    """The job was asked to stop. Work files written so far are kept for a resume."""

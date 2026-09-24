@@ -20,6 +20,9 @@ from __future__ import annotations
 
 import importlib.util
 import logging
+import os
+import shutil
+import sys
 from pathlib import Path
 
 from kitab.errors import MissingDependency
@@ -38,6 +41,48 @@ def available_backend() -> str | None:
         return "chromium"
     if importlib.util.find_spec("weasyprint") is not None:
         return "weasyprint"
+    return None
+
+
+# Chromium-family browsers Playwright can drive through ``executable_path``. The
+# desktop build ships Playwright's driver but not its 150 MB browser download, so it
+# prints with whichever of these the machine already has -- Edge on every Windows 11,
+# and usually Chrome or Chromium on Linux.
+_BROWSER_COMMANDS = (
+    "chromium",
+    "chromium-browser",
+    "google-chrome",
+    "google-chrome-stable",
+    "microsoft-edge",
+    "microsoft-edge-stable",
+    "brave-browser",
+    "brave",
+    "msedge",
+    "chrome",
+)
+_WINDOWS_BROWSERS = (
+    r"Microsoft\Edge\Application\msedge.exe",
+    r"Google\Chrome\Application\chrome.exe",
+    r"BraveSoftware\Brave-Browser\Application\brave.exe",
+)
+
+
+def system_browser() -> str | None:
+    """Path to an installed Chromium-family browser, or None."""
+    for name in _BROWSER_COMMANDS:
+        found = shutil.which(name)
+        if found:
+            return found
+    if sys.platform == "win32":
+        roots = [
+            os.environ.get(var)
+            for var in ("PROGRAMFILES(X86)", "PROGRAMFILES", "LOCALAPPDATA")
+        ]
+        for root in filter(None, roots):
+            for relative in _WINDOWS_BROWSERS:
+                candidate = Path(root) / relative
+                if candidate.is_file():
+                    return str(candidate)
     return None
 
 
@@ -68,9 +113,14 @@ def _write_chromium(html_path: Path, out_path: Path, page_size: str) -> Path:
         try:
             browser = playwright.chromium.launch()
         except Exception as e:
-            raise RuntimeError(
-                "Chromium is not installed for Playwright. Run:  playwright install chromium"
-            ) from e
+            executable = system_browser()
+            if executable is None:
+                raise RuntimeError(
+                    "No Chromium browser found. Install Chrome, Chromium or Edge, "
+                    "or run:  playwright install chromium"
+                ) from e
+            logger.info("printing with %s", executable)
+            browser = playwright.chromium.launch(executable_path=executable)
         try:
             page = browser.new_page()
             page.goto(html_path.resolve().as_uri(), wait_until="networkidle")

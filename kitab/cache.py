@@ -121,7 +121,10 @@ def init_db(remove_exists: bool = False) -> None:
     path = cache_path()
     if remove_exists and os.path.exists(path):
         os.remove(path)
-    db.init(path, pragmas={"journal_mode": "wal", "busy_timeout": 1000})
+    # The GUI runs several books at once, each in its own process, all writing this
+    # one file. WAL lets readers proceed; the timeout lets writers queue rather than
+    # drop a row the moment another process holds the lock.
+    db.init(path, pragmas={"journal_mode": "wal", "busy_timeout": 10000})
     db.create_tables([_TranslationCache], safe=True)
     _initialized = True
 

@@ -76,6 +76,7 @@ column, and figures land where the reflow puts them.
 | `kitab/ingest/pdf.py` | 3 PDF→Markdown backends | new |
 | `kitab/ingest/epub.py` | EPUB/HTML→Markdown, ruby stripping | new |
 | `kitab/ingest/ocr.py` | RapidOCR wrapper, position labelling | new |
+| `kitab/ingest/scanned.py` | image-only PDF → Markdown, figures, legends | new |
 | `kitab/figures.py` | Tier 0/1 classification, legend injection | new |
 | `kitab/md/mask.py` | placeholder protection + verification | concept from `pdf2zh` |
 | `kitab/md/ast.py` | Markdown document model | new |
@@ -88,6 +89,20 @@ column, and figures land where the reflow puts them.
 | `kitab/render/pdf_out.py` | Chromium / WeasyPrint | new |
 | `kitab/pipeline.py` | stage orchestration, resume, reporting | new |
 | `kitab/cli.py` | command line | new |
+| `kitab/progress.py` | stage/progress events, cooperative cancellation | new |
+| `kitab/gui/` | desktop app: job queue, settings, keyring (PySide6) | new |
+
+**The desktop app** runs each book in its own process (`gui/worker.py`), started with
+`spawn` on every platform, because forking a process that has Qt loaded is unsafe. A
+single multiprocessing queue carries plain tuples back to the window: progress, log
+lines, and the final result. The pipeline itself knows nothing about the GUI. It
+calls `progress.stage()`, `progress.advance()` and `progress.check()`, and those do
+nothing unless a job process has installed a sink. `check()` raises `Cancelled` only
+between OCR pages, translation batches and stages. At those points the work directory
+is consistent and the cache holds every finished batch, so Stop followed by Retry
+resumes rather than restarts. Stage files are written to a temporary file and then
+renamed into place, so a job that has to be killed outright cannot leave half a file
+behind.
 
 ---
 
@@ -211,15 +226,52 @@ fix the structure.
 
 ### 2.3 OCR (`ingest/ocr.py`)
 
-RapidOCR on ONNX Runtime, CPU, ~seconds per page at 200 DPI. Used for scanned pages and
-for Tier-1 figure labels, the same engine both times.
+RapidOCR on ONNX Runtime, CPU, ~2.5 s per page at 200 DPI. Used for scanned pages and
+for Tier-1 figure labels, the same engine both times. Its bundled PP-OCR model reads
+both input languages, English and Japanese, with no extra download.
 
-Scanned pages become **flat** Markdown with `## Page N` markers and no inferred
-headings. Without a layout model there is no reliable heading signal in a scan, and
-inventing one produces a wrong table of contents, which is worse than none.
+Two package generations are normalised to one `OcrLine` type: `rapidocr` (current, and
+the only one installable on Python 3.13+) and `rapidocr_onnxruntime` (predecessor,
+different return shape).
 
-Not installed → scanned input is refused with an explanation, and every figure is
+200 DPI is a measured knee, not a guess. On a 131 DPI phone scan, 200 and 400 read body
+text equally well and 400 read small diagram labels slightly *worse*. `scanned.py`
+renders at the page's own resolution, floored at 200 and capped at 300.
+
+Not installed → the run falls back to the text layer with a warning, and every figure is
 Tier 0. An uninstalled extra degrades output; it never fails the run.
+
+### 2.3.1 Image-only books (`ingest/scanned.py`)
+
+A book whose pages are pictures has no spans, no font sizes and no image list. Prose,
+diagrams and chart screenshots are the same pixels, so structure is recovered by
+measurement:
+
+1. **Render** at the resolution the scan actually carries.
+2. **Recognise**, giving a box and a confidence per line.
+3. **Separate drawing from prose.** Ink that no recognised line covers is a diagram.
+   Its extent becomes a figure and is cropped to `images/`; lines standing inside it,
+   or clear of the main text column, are its labels rather than sentences. A figure
+   grows as it claims them, so the crop includes its own callouts.
+4. **Rebuild** through `pdf.assemble_pages` — the same function the digital backend
+   uses. An OCR box and a font span carry the same two facts, where the line is and how
+   tall it is, so headings, paragraphs, columns and lists have one implementation.
+
+Two measurements make step 4 work on a scan. Line heights are **bucketed**, not used
+raw: the same sentence measures 11.0 or 12.3 points depending on whether it contains a
+descender, and that wobble alone invents four heading levels. And body height is
+measured **per page** but reported on a **shared nominal scale**, because a scanned book
+is not typeset once — without the shared scale, every page set in larger type becomes a
+run of headings.
+
+Chart axis ticks (`183.980`, `10 Jul 04:00`) and scanner watermarks (`AnyScanner`) are
+dropped before segmentation. They are identical in every language, and a candlestick
+screenshot carries dozens.
+
+Headings *are* inferred here, unlike the flat `## Page N` output this replaced. The
+signal is real — a chapter title is physically two or three times the height of body
+text — but it is weaker than a digital PDF's, so `04_translated.md` remains the place a
+human fixes what the measurement got wrong.
 
 ### 2.4 Figures (`figures.py`)
 
