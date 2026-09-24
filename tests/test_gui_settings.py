@@ -125,3 +125,16 @@ def test_a_failing_keyring_falls_back_to_the_file(tmp_path):
     store._keyring = Broken()
     store.set("openai", "sk-x")
     assert store.get("openai") == "sk-x"
+
+
+def test_reasoning_level_is_remembered_per_engine(tmp_path):
+    path = tmp_path / "gui.json"
+    s = Settings()
+    s.engine("openai").reasoning = "high"
+    s.save(path)
+    assert Settings.load(path).engine("openai").reasoning == "high"
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["engines"]["openai"]["reasoning"] = "turbo"  # not a level any model takes
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    assert Settings.load(path).engine("openai").reasoning == ""

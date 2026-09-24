@@ -124,6 +124,8 @@ class JobCard(CardWidget):
         self.icon.setIcon(_STATE_ICONS[state])
 
         engine = engine_label(job.options.get("service", ""))
+        if job.options.get("reasoning_effort"):
+            engine += f" ({job.options['reasoning_effort']} reasoning)"
         if state is State.QUEUED:
             detail = f"Waiting · {engine}"
         elif state in (State.RUNNING, State.CANCELLING):

@@ -23,6 +23,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from kitab.translate.openai_like import REASONING_EFFORTS
 from kitab.translate.registry import DEFAULT_ENGINE, ENGINES
 
 from .paths import config_dir
@@ -51,6 +52,8 @@ def engine_defaults(name: str) -> tuple[str, str]:
 class EngineSettings:
     model: str = ""
     base_url: str = ""
+    #: Reasoning effort last chosen for this engine; "" is the model's default.
+    reasoning: str = ""
 
 
 @dataclass
@@ -94,9 +97,11 @@ class Settings:
         settings = cls(**{k: v for k, v in raw.items() if k in known})
         for name, values in (raw.get("engines") or {}).items():
             if name in ENGINES and isinstance(values, dict):
+                reasoning = str(values.get("reasoning") or "")
                 settings.engines[name] = EngineSettings(
                     model=str(values.get("model") or ""),
                     base_url=str(values.get("base_url") or ""),
+                    reasoning=reasoning if reasoning in REASONING_EFFORTS else "",
                 )
         if settings.service not in ENGINES:
             settings.service = DEFAULT_ENGINE

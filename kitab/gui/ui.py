@@ -18,6 +18,18 @@ ENGINE_LABELS = {
 
 LANGUAGES = [("auto", "Detect automatically"), ("en", "English"), ("ja", "Japanese")]
 
+#: Shown in the reasoning menu. "" sends nothing: the model's own default.
+REASONING_LABELS = {
+    "": "Reasoning: model default",
+    "none": "Reasoning: none (fastest)",
+    "minimal": "Reasoning: minimal",
+    "low": "Reasoning: low",
+    "medium": "Reasoning: medium",
+    "high": "Reasoning: high",
+    "xhigh": "Reasoning: extra high",
+    "max": "Reasoning: max",
+}
+
 INPUT_SUFFIXES = (".pdf", ".epub", ".md", ".markdown", ".txt", ".html", ".htm")
 
 STAGE_LABELS = {

@@ -7,6 +7,20 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Reasoning effort for OpenAI and OpenAI-compatible reasoning models such as GPT-6
+  Luna: `--reasoning none|minimal|low|medium|high|xhigh|max`, and a menu next to the
+  model in the desktop app, remembered per engine. Unset means the model's default.
+  A level the model refuses stops the book with a clear message instead of failing
+  every segment.
+
+### Fixed
+- `temperature` is no longer sent to a model while it is reasoning. OpenAI rejects
+  that combination, which made GPT-6 models unusable at their default effort.
+- The packaged app failed on every digital PDF: PyMuPDF's layout models, which the
+  fast extractor loads at run time, were missing from the bundle. The build now also
+  checks for every data set loaded at run time and refuses to finish without them.
+
 ### Planned
 - Previous-paragraph context in the translation prompt.
 - A quality report that flags suspiciously short or long translations.

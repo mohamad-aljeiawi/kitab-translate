@@ -55,7 +55,8 @@ dependencies = [
     # render
     "jinja2>=3.1",
     # translate
-    "openai>=1.0.0",
+    # reasoning_effort on chat.completions.create
+    "openai>=1.60",
     "requests",
     "tenacity",
     # infrastructure
@@ -113,3 +114,7 @@ Repository = "https://github.com/mohamad-aljeiawi/kitab-translate"
 Issues = "https://github.com/mohamad-aljeiawi/kitab-translate/issues"
 Changelog = "https://github.com/mohamad-aljeiawi/kitab-translate/blob/main/CHANGELOG.md"
 Documentation = "https://github.com/mohamad-aljeiawi/kitab-translate/blob/main/docs/ARCHITECTURE.md"
+
+[tool.black]
+# The oldest Python kitab supports; black must not emit newer syntax.
+target-version = ["py311"]

@@ -29,6 +29,7 @@ from typing import Iterable, Sequence
 from kitab import progress
 from kitab.cache import TranslationCache
 from kitab.config import ConfigManager
+from kitab.errors import EngineConfigError
 from kitab.md.mask import CURLY, MaskStyle
 
 from .limiter import RateLimiter
@@ -72,6 +73,8 @@ class BaseTranslator:
     #: Soft cap on characters per request, whatever ``batch_size`` says.
     max_batch_chars = 6000
     supports_glossary = False
+    #: Whether the engine accepts a reasoning effort (``reasoning_effort``).
+    supports_reasoning = False
     #: Requests in flight. Concurrency and rate are separate knobs on purpose.
     default_workers = 4
     #: Requests started per second, across all workers. 0 disables the limiter.
@@ -208,6 +211,8 @@ class BaseTranslator:
         sources = [texts[i] for i in group]
         try:
             translations = self.do_translate_batch(sources)
+        except EngineConfigError:
+            raise
         except Exception as e:
             logger.warning(
                 "%s: batch of %d failed (%s); retrying one at a time",
@@ -229,6 +234,8 @@ class BaseTranslator:
             for source in sources:
                 try:
                     translations.append(self.do_translate(source))
+                except EngineConfigError:
+                    raise
                 except Exception as e:
                     logger.error("%s: segment failed: %s", self.name, e)
                     translations.append("")
