@@ -19,6 +19,7 @@ kitab book.pdf                          # -> out/book.ar.epub   (free, no API ke
 kitab novel.epub --service deepseek     # better quality, cents per book
 kitab manual.pdf --pdf --bilingual      # EPUB + PDF, original kept for review
 kitab book.pdf --inspect                # what is this file, and what will it need?
+kitab --check                           # do OCR, the PDF extractor and PDF output work here?
 ```
 
 One direction, on purpose. There is no `--to` flag, no language matrix and no

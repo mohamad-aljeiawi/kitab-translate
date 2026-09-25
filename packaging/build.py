@@ -267,6 +267,7 @@ NOT_NEEDED_AT_RUN_TIME = [
     "*/NOTICE*",
 ]
 # Never data: code, native libraries, headers and prose.
+_VERSIONED_SO = re.compile(r"\.so(\.\d+)+$")
 _NOT_DATA = {
     ".py", ".pyc", ".pyi", ".pyd", ".so", ".dll", ".dylib", ".exe", ".typed",
     ".h", ".hpp", ".c", ".cpp", ".pxd", ".pyx", ".lib", ".a",
@@ -305,6 +306,10 @@ def _unbundled_data(internal: Path) -> list[str]:
             continue
         for path in source.rglob("*"):
             if not path.is_file() or path.suffix.lower() in _NOT_DATA:
+                continue
+            # Versioned shared libraries (libfoo.so.1.30.0) are native code, left
+            # to PyInstaller's dependency scan; `kitab --check` proves they load.
+            if _VERSIONED_SO.search(path.name):
                 continue
             if "__pycache__" in path.parts:
                 continue

@@ -16,6 +16,10 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.4.0] - 2026-09-25
 
 ### Added
+- `kitab --check` runs OCR, the fast PDF extractor and PDF output for real and
+  reports whether each works on this machine. Every release build runs it before
+  anything is published, so a model or library missing from the bundle can no longer
+  ship.
 - The desktop app speaks Arabic. Choose English, العربية or the system language in
   Settings; the whole window turns right to left, and the switch happens live without
   stopping books that are translating.
@@ -55,6 +59,8 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Button text stays readable on hover and when pressed, not only at rest, whatever
   the accent colour.
 - The desktop app requires PySide6 6.6 or newer, which the system-colour support needs.
+- On Windows, the command line crashed with `UnicodeEncodeError` when its output was
+  piped or redirected and it printed an Arabic file name.
 
 ## [0.3.0] - 2026-09-25
 

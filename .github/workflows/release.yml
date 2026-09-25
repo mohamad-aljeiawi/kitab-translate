@@ -64,6 +64,9 @@ jobs:
         run: |
           dist/kitab/kitab-cli --version
           dist/kitab/kitab-cli samples/abstraction.md --inspect
+          # Runs OCR and the fast extractor for real inside the frozen build;
+          # a model or native library missing from the bundle fails here.
+          dist/kitab/kitab-cli --check
           if [ "$RUNNER_OS" = "Linux" ]; then
             status=0
             QT_QPA_PLATFORM=offscreen timeout 20 dist/kitab/kitab || status=$?
