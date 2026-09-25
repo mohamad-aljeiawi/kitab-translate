@@ -176,6 +176,7 @@ class ServiceCard(QWidget):
 class SettingsPage(Page):
     language_changed = Signal(str)
     theme_changed = Signal(str)
+    accent_changed = Signal(str)
     changed = Signal()
 
     def __init__(
@@ -218,7 +219,19 @@ class SettingsPage(Page):
             s.theme,
         )
         self.theme.currentIndexChanged.connect(self._on_theme)
-        section.add(OptionRow(FluentIcon.BRUSH, tr("theme.title"), "", self.theme))
+        section.add(
+            OptionRow(FluentIcon.BRUSH, tr("theme.title"), tr("theme.desc"), self.theme)
+        )
+        self.accent = make_combo(
+            [("system", tr("accent.system")), ("kitab", tr("accent.kitab"))],
+            s.accent,
+        )
+        self.accent.currentIndexChanged.connect(self._on_accent)
+        section.add(
+            OptionRow(
+                FluentIcon.PALETTE, tr("accent.title"), tr("accent.desc"), self.accent
+            )
+        )
         self.body.addWidget(section)
 
     def _build_services(self) -> None:
@@ -346,6 +359,11 @@ class SettingsPage(Page):
         self.settings.theme = self.theme.currentData()
         self.settings.save()
         self.theme_changed.emit(self.settings.theme)
+
+    def _on_accent(self) -> None:
+        self.settings.accent = self.accent.currentData()
+        self.settings.save()
+        self.accent_changed.emit(self.settings.accent)
 
     def _save_speed(self) -> None:
         s = self.settings

@@ -10,8 +10,6 @@ from qfluentwidgets import (
     InfoBarPosition,
     MessageBox,
     NavigationItemPosition,
-    Theme,
-    setTheme,
 )
 
 from .i18n import plural, tr
@@ -21,12 +19,6 @@ from .pages.settings import SettingsPage
 from .pages.translate import TranslatePage
 from .paths import ASSETS
 from .settings import SecretStore, Settings
-
-_THEMES = {"auto": Theme.AUTO, "light": Theme.LIGHT, "dark": Theme.DARK}
-
-
-def apply_theme(name: str) -> None:
-    setTheme(_THEMES.get(name, Theme.AUTO))
 
 
 class MainWindow(FluentWindow):
