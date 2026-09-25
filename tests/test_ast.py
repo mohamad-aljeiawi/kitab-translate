@@ -171,3 +171,17 @@ def test_entities_are_not_split_by_bdi():
     assert out.count("&quot;") == 2
     for entity in ("&lt;", "&gt;", "&amp;", "&#8212;", "&#x2014;"):
         assert entity in isolate_ltr_runs(f"<p>عربي {entity} عربي</p>")
+
+
+def test_strikethrough_survives_the_round_trip():
+    """The parser reads ~~text~~, so the writer must write it back.
+
+    mdformat has no renderer for the "s" token on its own; a PDF whose extracted
+    text held a single ~~-~~ made the rebuild stage fail with KeyError: 's' after
+    the whole book had been translated.
+    """
+    source = "~~-~~ University College\n\nKeep ~~this~~ and **that**.\n"
+    doc = MarkdownDocument(source)
+    out = doc.to_markdown()
+    assert "~~-~~ University College" in out
+    assert "Keep ~~this~~ and **that**." in out

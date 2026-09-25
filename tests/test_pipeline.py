@@ -223,3 +223,18 @@ def test_images_are_published_next_to_the_html(tmp_path):
         assert (
             work / target
         ).parent.exists(), f"{target} has no directory beside the HTML"
+
+
+def test_strikethrough_in_the_source_reaches_the_epub(tmp_path):
+    """The rebuild stage used to crash on ~~text~~ after translating everything."""
+    source = tmp_path / "struck.md"
+    source.write_text(
+        "# Title\n\n~~-~~ University College\n\nA ~~crossed~~ word.\n",
+        encoding="utf-8",
+    )
+    result = translate_book(source, tmp_path / "out", options=_options())
+
+    assert result.epub_path and result.epub_path.exists()
+    markdown = result.markdown_path.read_text(encoding="utf-8")
+    assert "~~" in markdown
+    assert "AR " in markdown
