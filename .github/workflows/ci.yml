@@ -28,11 +28,12 @@ jobs:
       # pytest comes from the dev dependency group (PEP 735), which pip reads
       # with --group since 25.1; it is not an extra, so ".[dev]" installed nothing.
       # The ocr extra brings numpy, which the OCR tests use to build test pages;
-      # they fake the recogniser itself, so no model is downloaded.
+      # they fake the recogniser itself, so no model is downloaded. The fast extra
+      # is pymupdf4llm, which the image-path regression test needs.
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[ocr]" --group dev
+          pip install -e ".[ocr,fast]" --group dev
 
       # The suite runs against a fake engine: no API key, no network.
       - name: Test
