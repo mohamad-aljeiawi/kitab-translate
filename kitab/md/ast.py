@@ -48,6 +48,34 @@ def make_parser() -> MarkdownIt:
     return MarkdownIt("commonmark").enable("table").enable("strikethrough")
 
 
+class _Strikethrough:
+    """mdformat plugin for the ``s`` token the parser above produces.
+
+    mdformat renders CommonMark only; tables come from mdformat_tables and
+    strikethrough from nowhere, so a single ``~~x~~`` in a book -- extractors turn
+    a struck-out rule into ``~~-~~`` -- failed the rebuild with ``KeyError: 's'``
+    after every segment had been translated. The markup is written back as read.
+    """
+
+    CHANGES_AST = False
+    POSTPROCESSORS: dict = {}
+
+    @staticmethod
+    def update_mdit(mdit: MarkdownIt) -> None:
+        mdit.enable("strikethrough")
+
+    @staticmethod
+    def _render(node, context) -> str:
+        inner = "".join(child.render(context) for child in node.children)
+        return f"{node.markup}{inner}{node.markup}"
+
+    RENDERERS = {"s": _render}
+
+
+#: Every mdformat plugin the renderer needs for what make_parser() can produce.
+_RENDER_EXTENSIONS = [mdformat_tables, _Strikethrough]
+
+
 def _has_letters(text: str) -> bool:
     return any(ch.isalpha() for ch in text)
 
@@ -168,7 +196,7 @@ class MarkdownDocument:
 
     def to_markdown(self) -> str:
         return MDRenderer().render(
-            self.tokens, {"parser_extension": [mdformat_tables]}, {}
+            self.tokens, {"parser_extension": _RENDER_EXTENSIONS}, {}
         )
 
     def to_html(self) -> str:
