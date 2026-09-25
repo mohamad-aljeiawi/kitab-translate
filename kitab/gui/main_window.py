@@ -1,4 +1,4 @@
-"""The main window: navigation between Translate, Jobs and Settings."""
+"""The main window: navigation between Translate, My translations and Settings."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from qfluentwidgets import (
     setTheme,
 )
 
+from .i18n import plural, tr
 from .jobs import JobManager
 from .pages.jobs import JobsPage
 from .pages.settings import SettingsPage
@@ -29,22 +30,26 @@ def apply_theme(name: str) -> None:
 
 
 class MainWindow(FluentWindow):
-    def __init__(self, settings: Settings, secrets: SecretStore):
+    def __init__(self, settings: Settings, secrets: SecretStore, jobs: JobManager):
         super().__init__()
         self.settings = settings
         self.secrets = secrets
-        self.jobs = JobManager(settings.max_jobs, self)
+        self.jobs = jobs
+        #: Set when the window is being replaced (language change), not closed.
+        self.replacing = False
 
-        self.translate_page = TranslatePage(settings, secrets, self.jobs, self)
-        self.jobs_page = JobsPage(self.jobs, self)
-        self.settings_page = SettingsPage(settings, secrets, self)
+        self.translate_page = TranslatePage(settings, secrets, jobs, self)
+        self.jobs_page = JobsPage(jobs, self)
+        self.settings_page = SettingsPage(settings, secrets, jobs, self)
 
-        self.addSubInterface(self.translate_page, FluentIcon.LANGUAGE, "Translate")
-        self.addSubInterface(self.jobs_page, FluentIcon.HISTORY, "Jobs")
+        self.addSubInterface(
+            self.translate_page, FluentIcon.LANGUAGE, tr("nav.translate")
+        )
+        self.addSubInterface(self.jobs_page, FluentIcon.LIBRARY, tr("nav.jobs"))
         self.addSubInterface(
             self.settings_page,
             FluentIcon.SETTING,
-            "Settings",
+            tr("nav.settings"),
             NavigationItemPosition.BOTTOM,
         )
 
@@ -52,13 +57,17 @@ class MainWindow(FluentWindow):
         self.translate_page.open_settings.connect(
             lambda: self.switchTo(self.settings_page)
         )
-        self.settings_page.theme_changed.connect(apply_theme)
-        self.settings_page.saved.connect(self._on_settings_saved)
+        self.jobs_page.go_translate.clicked.connect(
+            lambda: self.switchTo(self.translate_page)
+        )
+        self.settings_page.changed.connect(self._on_settings_changed)
 
-        self.setWindowTitle("Kitab — books into Arabic")
+        self.setWindowTitle(tr("app.title"))
         self.setWindowIcon(QIcon(str(ASSETS / "icon.svg")))
         self.resize(1080, 760)
-        self.setMinimumSize(860, 600)
+        self.setMinimumSize(720, 560)
+
+    def center(self) -> None:
         screen = self.screen().availableGeometry()
         self.move(
             screen.x() + (screen.width() - self.width()) // 2,
@@ -68,30 +77,27 @@ class MainWindow(FluentWindow):
     def _on_submitted(self, count: int) -> None:
         self.switchTo(self.jobs_page)
         InfoBar.success(
-            "Queued",
-            f"{count} book{'s' * (count != 1)} added to the queue.",
+            tr("queued.title"),
+            plural("books.started", count),
             duration=2500,
             position=InfoBarPosition.TOP,
             parent=self.jobs_page,
         )
 
-    def _on_settings_saved(self) -> None:
+    def _on_settings_changed(self) -> None:
         self.jobs.set_max_parallel(self.settings.max_jobs)
-        self.jobs_page._refresh_counts()
+        self.jobs_page.refresh_counts()
         self.translate_page.reload_engine()
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event) -> None:  # noqa: N802
+        if self.replacing:
+            super().closeEvent(event)
+            return
         active = self.jobs.active()
         if active:
-            box = MessageBox(
-                "Stop and quit?",
-                f"{len(active)} book{'s are' if len(active) != 1 else ' is'} still "
-                "in the queue. Quitting stops them; each one resumes from where it "
-                "stopped when you queue it again.",
-                self,
-            )
-            box.yesButton.setText("Stop and quit")
-            box.cancelButton.setText("Keep working")
+            box = MessageBox(tr("quit.title"), tr("quit.body", n=len(active)), self)
+            box.yesButton.setText(tr("quit.yes"))
+            box.cancelButton.setText(tr("quit.no"))
             if not box.exec():
                 event.ignore()
                 return

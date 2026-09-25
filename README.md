@@ -141,8 +141,8 @@ Optional extras, each independent:
 
 ## Desktop app
 
-A window for everything the command line does. You can queue several books and they
-run side by side with live progress. The Stop button keeps the work done so far, so
+A window for everything the command line does, in English or Arabic (right to left).
+You can queue several books and they run side by side with live progress. The Stop button keeps the work done so far, so
 the book resumes from that point next time. API keys are kept in the system keyring,
 not in a file.
 

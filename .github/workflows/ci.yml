@@ -59,7 +59,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends libegl1 libxkbcommon0 libfontconfig1 libdbus-1-3
       - run: pip install -e ".[gui]" pytest
       # Real job processes against a fake engine; no display needed.
-      - run: pytest -q tests/test_gui_jobs.py tests/test_gui_settings.py tests/test_progress.py
+      - run: pytest -q tests/test_gui_jobs.py tests/test_gui_settings.py tests/test_gui_ui.py tests/test_progress.py
         env:
           QT_QPA_PLATFORM: offscreen
 

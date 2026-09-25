@@ -60,6 +60,7 @@ class EngineSettings:
 class Settings:
     # appearance
     theme: str = "auto"  # auto | light | dark
+    language: str = "auto"  # auto (follow the system) | en | ar
     # jobs
     max_jobs: int = 2
     output_dir: str = ""  # empty: next to each source file
@@ -105,6 +106,8 @@ class Settings:
                 )
         if settings.service not in ENGINES:
             settings.service = DEFAULT_ENGINE
+        if settings.language not in ("auto", "en", "ar"):
+            settings.language = "auto"
         return settings
 
     def save(self, path: Path | None = None) -> None:

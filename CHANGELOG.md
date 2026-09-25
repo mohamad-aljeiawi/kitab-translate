@@ -7,6 +7,25 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- The desktop app speaks Arabic. Choose English, العربية or the system language in
+  Settings; the whole window turns right to left, and the switch happens live without
+  stopping books that are translating.
+
+### Changed
+- The desktop app is reorganised so nothing overlaps at any window size. Each option
+  is one row with a sentence explaining it, and controls move under the text when the
+  window is narrow. Options most books never need sit under "More options".
+- Every book in "My translations" (formerly Jobs) has one clearly labelled button for
+  what to do next -- Stop, Open book, Try again, Continue -- and the rest in a menu,
+  instead of a row of unlabelled icons.
+- On/off choices are switches, the page range is checked as you type, and the Start
+  button explains why it is unavailable.
+- Settings save as you change them; the Save button is gone. Each translation
+  service opens to its key, model and address, and shows whether a key is saved.
+- Plainer wording throughout, written for each language rather than translated
+  word for word.
+
 ### Planned
 - Previous-paragraph context in the translation prompt.
 - A quality report that flags suspiciously short or long translations.
