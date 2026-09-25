@@ -170,6 +170,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--engines", action="store_true", help="list translation engines and exit"
     )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="check that OCR, the fast PDF extractor and PDF output work here",
+    )
     _add_translate_arguments(parser)
     return parser
 
@@ -226,6 +231,17 @@ def _run_inspect(path: Path) -> int:
     return 0
 
 
+def _run_check() -> int:
+    from kitab.check import run_checks
+
+    results = run_checks()
+    marks = {"ok": "ok     ", "missing": "missing", "failed": "FAILED "}
+    for result in results:
+        print(f"{marks[result.status]}  {result.name:<20} {result.detail}")
+    # Missing parts are optional; a part that is there but broken is a failure.
+    return 1 if any(r.status == "failed" for r in results) else 0
+
+
 def _run_engines() -> int:
     for name in sorted(ENGINES):
         cls = ENGINES[name]
@@ -235,7 +251,20 @@ def _run_engines() -> int:
     return 0
 
 
+def _safe_output() -> None:
+    """Never let printing a book's name end the program.
+
+    Output piped on Windows is encoded as cp1252, which has no Arabic letters, so
+    printing "علم المناعة.pdf" raised UnicodeEncodeError. Characters the stream
+    cannot encode are replaced instead; a UTF-8 terminal still shows them all.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    _safe_output()
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -250,6 +279,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.engines:
         return _run_engines()
+    if args.check:
+        return _run_check()
     if args.input is None:
         parser.print_help()
         return 2

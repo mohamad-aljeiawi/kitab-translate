@@ -10,7 +10,11 @@
 import sys
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import (
+    collect_data_files,
+    collect_dynamic_libs,
+    collect_submodules,
+)
 
 ROOT = Path(SPECPATH).parent
 BUILD = ROOT / "build"
@@ -24,6 +28,10 @@ datas = [
 datas += collect_data_files("kitab")
 # The ONNX models, downloaded into the package by build.py before this runs.
 datas += collect_data_files("rapidocr")
+# ONNX Runtime's shared libraries. Its hook collects the Python extension, but on
+# Linux libonnxruntime.so.<version> ships beside it and is not always found by
+# the dependency scan; collected here so the OCR engine cannot lose it.
+binaries = collect_dynamic_libs("onnxruntime")
 # PyMuPDF's layout analyser, which pymupdf4llm (the "fast" extractor) loads on
 # import: its ONNX models and their YAML configs. Not its C headers.
 datas += collect_data_files("pymupdf", includes=["layout/**"])
@@ -87,6 +95,7 @@ def analysis(script):
     a = Analysis(
         [str(ROOT / "packaging" / script)],
         pathex=[str(ROOT)],
+        binaries=binaries,
         datas=datas,
         hiddenimports=hiddenimports,
         excludes=excludes,
