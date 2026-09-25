@@ -27,6 +27,9 @@ datas += collect_data_files("rapidocr")
 # PyMuPDF's layout analyser, which pymupdf4llm (the "fast" extractor) loads on
 # import: its ONNX models and their YAML configs. Not its C headers.
 datas += collect_data_files("pymupdf", includes=["layout/**"])
+# pymupdf4llm's own model, which decides per page whether OCR is needed. It is
+# read only for pages with images, so a text-only test PDF never reaches it.
+datas += collect_data_files("pymupdf4llm")
 # Playwright's Node driver. No browser: PDFs print with the Edge, Chrome or
 # Chromium already on the machine (kitab.render.pdf_out.system_browser).
 datas += collect_data_files("playwright", includes=["driver/**"])

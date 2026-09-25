@@ -113,15 +113,42 @@ def _extract_pymupdf4llm(
     except ImportError as e:
         raise MissingDependency("pymupdf4llm", "fast", "The fast backend") from e
 
+    # Images come back embedded and are written here, not by pymupdf4llm: its
+    # md_path() uses one string as both the link and the save path after replacing
+    # spaces, brackets and dashes in the *whole* path, so any folder with a space
+    # in its name -- "My Books", or a work directory named after the book -- sent
+    # every image to a directory that does not exist.
     markdown = pymupdf4llm.to_markdown(
         str(path),
         pages=_page_list(pages),
-        write_images=True,
-        image_path=str(images_dir),
+        embed_images=True,
         image_format="png",
     )
-    markdown = _rewrite_image_paths(markdown)
+    markdown = _write_embedded_images(markdown, images_dir)
     return Extraction(markdown=markdown, images_dir=images_dir, backend="fast")
+
+
+_EMBEDDED_IMAGE = re.compile(
+    r"!\[([^\]]*)\]\(data:image/([A-Za-z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)\)"
+)
+
+
+def _write_embedded_images(markdown: str, images_dir: Path) -> str:
+    """Save every ``data:`` image to ``images_dir`` and link to the file instead."""
+    import base64
+
+    count = 0
+
+    def save(match: re.Match) -> str:
+        nonlocal count
+        count += 1
+        alt, kind, data = match.group(1), match.group(2).lower(), match.group(3)
+        extension = {"jpeg": "jpg", "svg+xml": "svg"}.get(kind, kind)
+        name = f"img-{count:04d}.{extension}"
+        (images_dir / name).write_bytes(base64.b64decode(data))
+        return f"![{alt}](images/{name})"
+
+    return _EMBEDDED_IMAGE.sub(save, markdown)
 
 
 def _extract_builtin(path: Path, images_dir: Path, pages: str | None) -> Extraction:

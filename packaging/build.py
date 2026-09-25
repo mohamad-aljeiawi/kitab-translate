@@ -235,8 +235,43 @@ REQUIRED = [
     ("rapidocr/models/*.onnx", "OCR models"),
     ("pymupdf/layout/resources/onnx/*.yaml", "PDF layout model configs"),
     ("pymupdf/layout/resources/onnx/*.onnx", "PDF layout models"),
+    ("pymupdf4llm/ocr/ocr_decision_model.onnx", "PDF OCR-decision model"),
     ("playwright/driver/package/cli.js", "Playwright driver"),
 ]
+
+# The list above only covers files someone thought of, which is how 0.3.0 still
+# shipped without pymupdf4llm's OCR-decision model. So the build also compares
+# every data file of every bundled package against the bundle. Anything missing
+# fails the build unless it matches one of these: material no program loads at run
+# time. Add to it only after checking the package never opens the file.
+NOT_NEEDED_AT_RUN_TIME = [
+    # PySide6's own hook collects the plugins Qt loads. The rest is QML, type
+    # metadata, typesystems and headers, plus translations trimmed on purpose.
+    "PySide6/*",
+    "shiboken6/lib/cmake/*",
+    "*/tests/*",
+    "*/pkgconfig/*",
+    "numpy/f2py/*",
+    "numpy/random/_examples/*",
+    "setuptools/*",
+    "lxml/*.pxi",
+    "greenlet/platform/*",
+    "onnxruntime/datasets/*",
+    "urllib3/contrib/emscripten/*",
+    "markdown_it/port.yaml",
+    "keyring/backend_complete.*",
+    "tqdm/completion.sh",
+    "tqdm/tqdm.1",
+    "*/.keep",
+    "*/LICENSE*",
+    "*/NOTICE*",
+]
+# Never data: code, native libraries, headers and prose.
+_NOT_DATA = {
+    ".py", ".pyc", ".pyi", ".pyd", ".so", ".dll", ".dylib", ".exe", ".typed",
+    ".h", ".hpp", ".c", ".cpp", ".pxd", ".pyx", ".lib", ".a",
+    ".md", ".rst", ".txt", ".cfg", ".toml",
+}  # fmt: skip
 
 
 def _check_bundle(folder: Path) -> None:
@@ -246,9 +281,40 @@ def _check_bundle(folder: Path) -> None:
         for pattern, what in REQUIRED
         if not any(internal.glob(pattern))
     ]
+    missing += _unbundled_data(internal)
     if missing:
         sys.exit("the bundle is missing:\n  " + "\n  ".join(missing))
-    print(f"== bundle check: {len(REQUIRED)} runtime data sets present")
+    print(f"== bundle check: {len(REQUIRED)} named data sets, no unbundled data files")
+
+
+def _unbundled_data(internal: Path) -> list[str]:
+    """Data files of bundled packages that did not make it into the bundle."""
+    import fnmatch
+    import sysconfig
+
+    site = Path(sysconfig.get_paths()["purelib"])
+    packages = set()
+    for toc in (BUILD / "pyinstaller" / "kitab").glob("PYZ-*.toc"):
+        text = toc.read_text(encoding="utf-8", errors="replace")
+        packages.update(re.findall(r"\('([A-Za-z0-9_]+)[.']", text))
+
+    missing = []
+    for package in sorted(packages):
+        source = site / package
+        if not source.is_dir():
+            continue
+        for path in source.rglob("*"):
+            if not path.is_file() or path.suffix.lower() in _NOT_DATA:
+                continue
+            if "__pycache__" in path.parts:
+                continue
+            relative = path.relative_to(site).as_posix()
+            if (internal / relative).exists():
+                continue
+            if any(fnmatch.fnmatch(relative, p) for p in NOT_NEEDED_AT_RUN_TIME):
+                continue
+            missing.append(f"{relative} (not collected by kitab.spec)")
+    return missing
 
 
 # ---------------------------------------------------------------- Windows

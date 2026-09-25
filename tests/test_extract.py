@@ -6,6 +6,8 @@ together, a whole page collapsed into one paragraph, a contents page shredded in
 fragments.
 """
 
+import re
+
 import pymupdf
 import pytest
 
@@ -303,3 +305,36 @@ def test_promotion_is_skipped_when_headings_exist(tmp_path):
     md = _markdown(tmp_path, draw)
     assert "# A Genuine Big Heading" in md
     assert "# Chapter 4" not in md
+
+
+def test_fast_backend_images_survive_spaces_and_brackets_in_the_path(tmp_path):
+    """pymupdf4llm mangles spaces and brackets in the folder it writes images to.
+
+    A book named "My Book (2nd ed).pdf" gets a work directory with exactly those
+    characters, and every image then went to a folder that did not exist. The
+    backend now writes the images itself.
+    """
+    pytest.importorskip("pymupdf4llm")
+
+    folder = tmp_path / "My Books [test] (2nd ed) – علم المناعة"
+    folder.mkdir()
+    pdf = folder / "book with spaces.pdf"
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "Chapter 1", fontsize=18)
+    for i in range(6):
+        page.insert_text((72, 110 + 16 * i), "Antibodies bind antigens.", fontsize=11)
+    pixmap = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 200, 120), False)
+    pixmap.set_rect(pixmap.irect, (200, 60, 60))
+    page.insert_image(pymupdf.Rect(72, 250, 272, 370), pixmap=pixmap)
+    doc.save(pdf)
+
+    out = folder / "work dir (1)"
+    result = extract_pdf(pdf, out, backend="fast")
+
+    links = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", result.markdown)
+    assert links, "the figure should be in the Markdown"
+    for link in links:
+        assert link.startswith("images/")
+        assert (out / link).is_file(), f"{link} was not written"
+    assert "data:" not in result.markdown
