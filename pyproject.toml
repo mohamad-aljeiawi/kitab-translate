@@ -1,6 +1,6 @@
 [project]
 name = "kitab"
-version = "0.3.0"
+version = "0.4.0"
 description = "Translate English and Japanese books into Arabic - PDF/EPUB in, right-to-left Arabic EPUB out"
 readme = "README.md"
 license = "AGPL-3.0-or-later"

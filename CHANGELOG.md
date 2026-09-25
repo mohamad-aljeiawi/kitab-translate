@@ -7,6 +7,14 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Planned
+- Previous-paragraph context in the translation prompt.
+- A quality report that flags suspiciously short or long translations.
+- `--sample N` for a cheap first look at a long book.
+- Linked EPUB footnotes.
+
+## [0.4.0] - 2026-09-25
+
 ### Added
 - The desktop app speaks Arabic. Choose English, العربية or the system language in
   Settings; the whole window turns right to left, and the switch happens live without
@@ -31,11 +39,22 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Plainer wording throughout, written for each language rather than translated
   word for word.
 
-### Planned
-- Previous-paragraph context in the translation prompt.
-- A quality report that flags suspiciously short or long translations.
-- `--sample N` for a cheap first look at a long book.
-- Linked EPUB footnotes.
+### Fixed
+- In the desktop app, digital PDFs with images failed: pymupdf4llm's page-analysis
+  model was missing from the bundle. Every build now checks all data files of every
+  bundled package and refuses to finish if one is missing.
+- Images from the fast PDF extractor were lost whenever a folder in the path had a
+  space, bracket or dash -- including the work folder, which is named after the book.
+  kitab now writes those images itself.
+- A book containing strikethrough text (`~~text~~`) translated fully and then failed
+  while being put back together, with `KeyError: 's'`.
+- Saving a setting cleared the model typed on the Translate page, and switching the
+  interface language dropped the options chosen but not yet started.
+- Leaving the API key field without a change rewrote the keyring, which could raise
+  a KWallet or Secret Service prompt on Linux.
+- Button text stays readable on hover and when pressed, not only at rest, whatever
+  the accent colour.
+- The desktop app requires PySide6 6.6 or newer, which the system-colour support needs.
 
 ## [0.3.0] - 2026-09-25
 
@@ -110,7 +129,8 @@ First public release.
 - CLI flags including `--inspect`, `--engines`, `--bilingual`, `--pages` and `--force`.
 - 69 tests running against a fake engine, with no key and no network.
 
-[Unreleased]: https://github.com/mohamad-aljeiawi/kitab-translate/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/mohamad-aljeiawi/kitab-translate/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/mohamad-aljeiawi/kitab-translate/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/mohamad-aljeiawi/kitab-translate/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mohamad-aljeiawi/kitab-translate/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/mohamad-aljeiawi/kitab-translate/releases/tag/v0.1.0
