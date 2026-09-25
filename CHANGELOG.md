@@ -11,6 +11,11 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The desktop app speaks Arabic. Choose English, العربية or the system language in
   Settings; the whole window turns right to left, and the switch happens live without
   stopping books that are translating.
+- Colours follow the system. The accent colour is your Windows accent (or the
+  desktop's on Linux), in the shades Windows itself uses for buttons in light and
+  dark mode; light/dark follows the system as it changes; and the Windows 11 Mica
+  backdrop follows the "Transparency effects" switch. Changes apply while the app is
+  open. "Kitab green" is available as a fixed alternative.
 
 ### Changed
 - The desktop app is reorganised so nothing overlaps at any window size. Each option

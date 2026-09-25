@@ -82,6 +82,8 @@ japanese = ["manga-ocr>=0.1.11"]
 # Desktop application (kitab-gui). Qt through PySide6 (LGPL); keys go to the OS
 # keyring -- Windows Credential Manager, or the Secret Service on Linux.
 gui = [
+    # 6.6: QPalette.Accent and colorSchemeChanged, for colours that follow the system.
+    "PySide6>=6.6",
     "PySide6-Fluent-Widgets>=1.7",
     "keyring>=25",
     "platformdirs>=4",

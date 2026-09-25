@@ -21,7 +21,7 @@ class Controller(QObject):
     def __init__(self, app: QApplication, settings, secrets):
         super().__init__()
         from .jobs import JobManager
-        from .main_window import apply_theme
+        from .theme import ThemeManager
 
         self.app = app
         self.settings = settings
@@ -29,7 +29,8 @@ class Controller(QObject):
         self.jobs = JobManager(settings.max_jobs)
         self._qt_translator: QTranslator | None = None
         self._apply_language(settings.language)
-        apply_theme(settings.theme)
+        self.theme = ThemeManager(app, settings)
+        self.theme.apply()
         self.window = self._make_window()
         self.window.center()
 
@@ -54,22 +55,26 @@ class Controller(QObject):
                 self._qt_translator = translator
 
     def _make_window(self):
-        from .main_window import MainWindow, apply_theme
+        from .main_window import MainWindow
 
         window = MainWindow(self.settings, self.secrets, self.jobs)
         window.settings_page.language_changed.connect(self.switch_language)
-        window.settings_page.theme_changed.connect(apply_theme)
+        window.settings_page.theme_changed.connect(lambda _: self.theme.apply())
+        window.settings_page.accent_changed.connect(lambda _: self.theme.apply())
+        self.theme.attach(window)
         return window
 
     def switch_language(self, preference: str) -> None:
         old = self.window
-        pending = old.translate_page.pending_files()
+        # Carry the page as it stands, not as last saved: choices are only written
+        # to Settings when a translation starts.
+        choices = old.translate_page.snapshot()
         geometry = old.saveGeometry()
 
         self._apply_language(preference)
         new = self._make_window()
         new.restoreGeometry(geometry)
-        new.translate_page.add_files(pending)
+        new.translate_page.restore(choices)
         new.switchTo(new.settings_page)
         new.show()
 

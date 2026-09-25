@@ -311,6 +311,17 @@ _STRINGS: dict[str, tuple[str, str]] = {
     "lang.desc": ("The language of this app", "لغة واجهة التطبيق"),
     "lang.auto": ("Use the system language", "لغة النظام"),
     "theme.title": ("Appearance", "المظهر"),
+    "theme.desc": (
+        "“Use the system setting” follows light or dark mode as soon as you change it",
+        "خيار «حسب النظام» يتبع الوضع الفاتح أو الداكن فور تغييره",
+    ),
+    "accent.title": ("Accent color", "لون التمييز"),
+    "accent.desc": (
+        "The color of buttons, switches and progress bars",
+        "لون الأزرار والمفاتيح وأشرطة التقدّم",
+    ),
+    "accent.system": ("Use the system color", "لون النظام"),
+    "accent.kitab": ("Kitab green", "أخضر كتاب"),
     "theme.auto": ("Use the system setting", "حسب النظام"),
     "theme.light": ("Light", "فاتح"),
     "theme.dark": ("Dark", "داكن"),
