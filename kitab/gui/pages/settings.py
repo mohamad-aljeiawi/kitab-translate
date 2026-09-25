@@ -153,14 +153,21 @@ class ServiceCard(QWidget):
         self.arrow.setIcon(FluentIcon.UP if open_ else FluentIcon.CHEVRON_DOWN_MED)
 
     def _save_key(self) -> None:
+        # editingFinished fires whenever focus leaves the field. Writing an
+        # unchanged key would touch the keyring, which on Linux can raise a
+        # KWallet or Secret Service prompt.
+        if self.key.text().strip() == self.secrets.get(self.name):
+            return
         self.secrets.set(self.name, self.key.text())
         self._refresh_status()
         self.changed.emit()
 
     def _save_fields(self) -> None:
         engine = self.settings.engine(self.name)
-        engine.model = self.model.text().strip()
-        engine.base_url = self.url.text().strip()
+        model, url = self.model.text().strip(), self.url.text().strip()
+        if (engine.model, engine.base_url) == (model, url):
+            return
+        engine.model, engine.base_url = model, url
         self.settings.save()
         self.changed.emit()
 

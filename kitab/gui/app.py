@@ -66,13 +66,15 @@ class Controller(QObject):
 
     def switch_language(self, preference: str) -> None:
         old = self.window
-        pending = old.translate_page.pending_files()
+        # Carry the page as it stands, not as last saved: choices are only written
+        # to Settings when a translation starts.
+        choices = old.translate_page.snapshot()
         geometry = old.saveGeometry()
 
         self._apply_language(preference)
         new = self._make_window()
         new.restoreGeometry(geometry)
-        new.translate_page.add_files(pending)
+        new.translate_page.restore(choices)
         new.switchTo(new.settings_page)
         new.show()
 

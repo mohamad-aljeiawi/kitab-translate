@@ -16,8 +16,9 @@ Qt reports it.
 "Transparency effects" switch is on.
 
 Windows does not tell a Qt app when the accent or the transparency switch changes,
-so those are read again every two seconds -- two registry values, microseconds.
-Light/dark arrives as a Qt signal.
+so those two registry values are read every two seconds and compared with the last
+reading; nothing else runs unless they differ. Light/dark arrives as a Qt signal,
+and a desktop that pushes a new palette (KDE, GNOME) reaches a hidden watcher.
 
 qfluentwidgets derives every accent shade from one colour, and in dark mode sets
 its brightness to the maximum. That is fine for a vivid blue and turns a grey or
@@ -33,7 +34,8 @@ import sys
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtGui import QColor, QGuiApplication, QPalette
-from qfluentwidgets import Theme, ThemeColor, setTheme, setThemeColor
+from PySide6.QtWidgets import QApplication, QWidget
+from qfluentwidgets import Theme, ThemeColor, qconfig, setTheme, setThemeColor
 
 #: Kitab's own colour: the green of the app icon.
 KITAB_ACCENT = "#17866f"
@@ -107,6 +109,17 @@ def system_palette() -> list[QColor] | None:
     if shades is not None:
         return shades
     accent = QGuiApplication.palette().color(QPalette.ColorRole.Accent)
+    # Qt fills the role from the style's own default when the desktop sets no
+    # accent; that is Qt's colour, not the user's, so it does not count.
+    style = (
+        QApplication.style()
+        if isinstance(QApplication.instance(), QApplication)
+        else None
+    )
+    if style is not None:
+        default = style.standardPalette().color(QPalette.ColorRole.Accent)
+        if accent == default:
+            return None
     return palette_from(accent) if accent.isValid() else None
 
 
@@ -118,6 +131,17 @@ def system_accent(dark: bool) -> QColor | None:
     """The system accent in the shade buttons use for ``dark``."""
     shades = system_palette()
     return button_shade(shades, dark) if shades else None
+
+
+def _windows_signature() -> tuple:
+    """The raw values the poll compares: cheap to read, cheap to compare."""
+    return (
+        _windows_accent_palette(),
+        _registry(
+            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+            "EnableTransparency",
+        ),
+    )
 
 
 def system_transparency() -> bool:
@@ -174,11 +198,13 @@ def role_colors(shades: list[QColor], dark: bool) -> dict[ThemeColor, str]:
     Windows shade, as a Windows accent button moves one shade per state.
     """
     s = shades
+    # Every role a filled button shows at rest, on hover or pressed carries its
+    # text, so each is held to the same contrast, not only the resting one.
     if dark:
         roles = {
             ThemeColor.PRIMARY: readable(s[LIGHT2], dark=True),
-            ThemeColor.DARK_1: s[LIGHT1],
-            ThemeColor.DARK_2: s[BASE],
+            ThemeColor.DARK_1: readable(s[LIGHT1], dark=True),
+            ThemeColor.DARK_2: readable(s[BASE], dark=True),
             ThemeColor.DARK_3: s[DARK1],
             ThemeColor.LIGHT_1: s[LIGHT3],
             ThemeColor.LIGHT_2: s[LIGHT3].lighter(108),
@@ -187,8 +213,8 @@ def role_colors(shades: list[QColor], dark: bool) -> dict[ThemeColor, str]:
     else:
         roles = {
             ThemeColor.PRIMARY: readable(s[DARK1], dark=False),
-            ThemeColor.LIGHT_1: s[BASE],
-            ThemeColor.LIGHT_2: s[LIGHT1],
+            ThemeColor.LIGHT_1: readable(s[BASE], dark=False),
+            ThemeColor.LIGHT_2: readable(s[LIGHT1], dark=False),
             ThemeColor.LIGHT_3: s[LIGHT2],
             ThemeColor.DARK_1: s[DARK2],
             ThemeColor.DARK_2: s[DARK3],
@@ -230,13 +256,24 @@ class ThemeManager(QObject):
         self._applied: tuple | None = None
 
         app.styleHints().colorSchemeChanged.connect(lambda _scheme: self.apply())
-        # Desktops that push a new palette (KDE, GNOME via the portal) say so here.
-        app.installEventFilter(self)
+        # Desktops that push a new palette (KDE, GNOME via the portal) reach every
+        # widget; one hidden widget is enough to hear it. An event filter on the
+        # application would run Python for every mouse move and paint instead.
+        self._watcher = (
+            _PaletteWatcher(self.apply) if isinstance(app, QApplication) else None
+        )
         if sys.platform == "win32":
+            self._signature = _windows_signature()
             self._poll = QTimer(self)
             self._poll.setInterval(_POLL_MS)
-            self._poll.timeout.connect(self.apply)
+            self._poll.timeout.connect(self._poll_windows)
             self._poll.start()
+
+    def _poll_windows(self) -> None:
+        signature = _windows_signature()
+        if signature != self._signature:
+            self._signature = signature
+            self.apply()
 
     def attach(self, window) -> None:
         self.windows = [w for w in self.windows if w is not window] + [window]
@@ -274,11 +311,15 @@ class ThemeManager(QObject):
 
         # Keyed by value: ThemeColor defines its own name() method, hiding Enum.name.
         _roles = {ThemeColor(value): color for value, color in roles}
+        primary = QColor(_roles[ThemeColor.PRIMARY])
+        # Each of setTheme and setThemeColor re-styles every widget. When the mode
+        # changes the colours change with it, so store the colour quietly and let
+        # the one setTheme pass pick it up; lazy styles hidden pages when shown.
         if previous is None or previous[0] != dark:
-            setTheme(Theme.DARK if dark else Theme.LIGHT)
-        if previous is None or previous[1] != roles:
-            # The library re-renders its style sheets when told the colour changed.
-            setThemeColor(QColor(_roles[ThemeColor.PRIMARY]))
+            qconfig.set(qconfig.themeColor, primary)
+            setTheme(Theme.DARK if dark else Theme.LIGHT, lazy=True)
+        elif previous[1] != roles:
+            setThemeColor(primary, lazy=True)
         if previous is None or previous[2] != transparent:
             for window in list(self.windows):
                 self._apply_effects(window, transparent)
@@ -287,7 +328,15 @@ class ThemeManager(QObject):
         if hasattr(window, "setMicaEffectEnabled"):
             window.setMicaEffectEnabled(transparent)
 
-    def eventFilter(self, watched, event) -> bool:  # noqa: N802 (Qt override)
-        if watched is self.app and event.type() == QEvent.Type.ApplicationPaletteChange:
-            QTimer.singleShot(0, self.apply)
-        return False
+
+class _PaletteWatcher(QWidget):
+    """Never shown; told, like every widget, when the application palette changes."""
+
+    def __init__(self, callback):
+        super().__init__()
+        self._callback = callback
+
+    def changeEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        if event.type() == QEvent.Type.ApplicationPaletteChange:
+            QTimer.singleShot(0, self._callback)
+        super().changeEvent(event)

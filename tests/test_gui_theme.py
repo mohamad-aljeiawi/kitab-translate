@@ -92,9 +92,9 @@ def manager(app, monkeypatch):
     monkeypatch.setattr(theme, "system_is_dark", lambda: system["dark"])
     monkeypatch.setattr(theme, "system_palette", lambda: system["shades"])
     monkeypatch.setattr(theme, "system_transparency", lambda: system["transparent"])
-    monkeypatch.setattr(theme, "setTheme", lambda t: calls["theme"].append(t))
+    monkeypatch.setattr(theme, "setTheme", lambda t, **_: calls["theme"].append(t))
     monkeypatch.setattr(
-        theme, "setThemeColor", lambda c: calls["color"].append(c.name())
+        theme, "setThemeColor", lambda c, **_: calls["color"].append(c.name())
     )
 
     def make(**settings):
@@ -115,11 +115,15 @@ def test_system_accent_and_mode_are_applied_and_followed(manager):
     # Light mode: buttons take Dark1, hover the base, pressed Light1 -- as Windows.
     assert theme.ThemeColor.PRIMARY.color().name() == "#0067c0"
     assert theme.ThemeColor.LIGHT_1.color().name() == "#0078d4"
-    assert theme.ThemeColor.LIGHT_2.color().name() == "#0091f8"
+    # Pressed: Light1, darkened just enough to keep white text readable.
+    pressed = theme.ThemeColor.LIGHT_2.color()
+    assert pressed.name() == theme.readable(QColor("#0091f8"), dark=False).name()
+    assert theme.contrast(pressed, QColor("white")) >= theme.MIN_CONTRAST
 
-    # Nothing changed: the two-second poll must not repaint anything.
+    # Nothing changed: applying again must not repaint anything.
+    before = (len(calls["theme"]), len(calls["color"]))
     m.apply()
-    assert len(calls["theme"]) == 1 and len(calls["color"]) == 1
+    assert (len(calls["theme"]), len(calls["color"])) == before
 
     # Windows switches to dark mode: buttons take Light2, hover Light1.
     system["dark"] = True
@@ -164,3 +168,61 @@ def test_accent_setting_survives_a_reload(tmp_path):
     assert Settings.load(path).accent == "kitab"
     path.write_text('{"accent": "rainbow"}', encoding="utf-8")
     assert Settings.load(path).accent == "system"
+
+
+PALE = [
+    QColor(c)
+    for c in (
+        "#fffbe6",
+        "#fff59d",
+        "#ffee58",
+        "#fdd835",
+        "#fbc02d",
+        "#f9a825",
+        "#f57f17",
+    )
+]
+
+
+@pytest.mark.parametrize("dark", [False, True])
+def test_every_button_state_keeps_readable_text(dark):
+    """Hover and pressed carry text too; a pale accent once gave white on yellow."""
+    roles = theme.role_colors(PALE if not dark else GREY[::-1], dark)
+    states = (
+        [theme.ThemeColor.DARK_1, theme.ThemeColor.DARK_2]
+        if dark
+        else [theme.ThemeColor.LIGHT_1, theme.ThemeColor.LIGHT_2]
+    ) + [theme.ThemeColor.PRIMARY]
+    text = QColor("black") if dark else QColor("white")
+    for state in states:
+        assert theme.contrast(QColor(roles[state]), text) >= theme.MIN_CONTRAST, state
+
+
+def test_a_mode_change_restyles_the_app_once(manager, monkeypatch):
+    make, system, calls = manager
+    m = make(theme="auto", accent="system")
+    m.apply()
+    calls["theme"].clear()
+    calls["color"].clear()
+    system["dark"] = True
+    m.apply()
+    # One full style pass (setTheme); the colour was stored without its own pass.
+    assert len(calls["theme"]) == 1
+    assert calls["color"] == []
+
+
+def test_the_windows_poll_does_nothing_until_the_registry_changes(manager, monkeypatch):
+    make, system, calls = manager
+    reading = {"sig": (b"a", 1)}
+    monkeypatch.setattr(theme, "_windows_signature", lambda: reading["sig"])
+    monkeypatch.setattr(theme.sys, "platform", "win32")
+    m = make(theme="auto", accent="system")
+    m.apply()
+    applied = []
+    monkeypatch.setattr(m, "apply", lambda: applied.append(1))
+    m._poll_windows()
+    assert applied == []
+    reading["sig"] = (b"b", 1)
+    m._poll_windows()
+    assert applied == [1]
+    m._poll.stop()

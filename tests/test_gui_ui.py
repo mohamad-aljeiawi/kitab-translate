@@ -217,3 +217,57 @@ def test_start_is_blocked_until_the_choice_makes_sense(app, isolated):
     assert not page.start.isEnabled()
     controller.window.replacing = True
     controller.window.close()
+
+
+def test_saving_a_setting_keeps_what_was_typed_on_the_translate_page(app, isolated):
+    controller = _controller(app, isolated, "en")
+    page = controller.window.translate_page
+    page.engine.setCurrentIndex(page.engine.findData("openai"))
+    page.model.setText("gpt-6-luna")
+    page.thinking.setCurrentIndex(page.thinking.findData("high"))
+
+    controller.window.settings_page.parallel.setValue(4)  # saves, emits changed
+    _settle(app)
+
+    assert page.model.text() == "gpt-6-luna"
+    assert page.thinking.currentData() == "high"
+    controller.window.replacing = True
+    controller.window.close()
+
+
+def test_switching_language_keeps_unsubmitted_choices(app, isolated):
+    controller = _controller(app, isolated, "en")
+    page = controller.window.translate_page
+    page.engine.setCurrentIndex(page.engine.findData("openai"))
+    page.model.setText("gpt-6-luna")
+    page.thinking.setCurrentIndex(page.thinking.findData("low"))
+    page.pdf.setChecked(True)
+    page.epub.setChecked(False)
+    page.pages.setText("1-20")
+    page.ocr.setChecked(True)
+    page.more.set_open(True)
+    before = page.snapshot()
+
+    settings_page = controller.window.settings_page
+    settings_page.language.setCurrentIndex(settings_page.language.findData("ar"))
+    _settle(app)
+
+    assert controller.window.translate_page.snapshot() == before
+    controller.window.replacing = True
+    controller.window.close()
+
+
+def test_leaving_the_key_field_without_a_change_does_not_touch_the_keyring(
+    app, isolated, monkeypatch
+):
+    controller = _controller(app, isolated, "en")
+    card = controller.window.settings_page.services["openai"]
+    writes = []
+    monkeypatch.setattr(card.secrets, "set", lambda *a: writes.append(a))
+    card.key.editingFinished.emit()
+    assert writes == []
+    card.key.setText("sk-new")
+    card.key.editingFinished.emit()
+    assert writes == [("openai", "sk-new")]
+    controller.window.replacing = True
+    controller.window.close()
