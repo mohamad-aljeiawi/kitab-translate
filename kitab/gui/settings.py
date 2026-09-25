@@ -61,6 +61,7 @@ class Settings:
     # appearance
     theme: str = "auto"  # auto | light | dark
     language: str = "auto"  # auto (follow the system) | en | ar
+    accent: str = "system"  # system (the OS accent colour) | kitab
     # jobs
     max_jobs: int = 2
     output_dir: str = ""  # empty: next to each source file
@@ -108,6 +109,8 @@ class Settings:
             settings.service = DEFAULT_ENGINE
         if settings.language not in ("auto", "en", "ar"):
             settings.language = "auto"
+        if settings.accent not in ("system", "kitab"):
+            settings.accent = "system"
         return settings
 
     def save(self, path: Path | None = None) -> None:

@@ -60,6 +60,11 @@ class _Inspector(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="inspect")
+        # The page is rebuilt on a language change; its pool must not outlive it.
+        pool = self._pool
+        self.destroyed.connect(
+            lambda *_: pool.shutdown(wait=False, cancel_futures=True)
+        )
 
     def inspect(self, path: Path) -> None:
         self._pool.submit(self._run, path)
@@ -77,7 +82,10 @@ class _Inspector(QObject):
                 summary = tr(f"book.{info.kind.value}")
         except Exception:
             summary = tr("book.unreadable")
-        self.inspected.emit(str(path), summary)
+        try:
+            self.inspected.emit(str(path), summary)
+        except RuntimeError:  # the page was closed while this file was inspected
+            pass
 
 
 class BookRow(QWidget):
@@ -357,20 +365,27 @@ class TranslatePage(Page):
     # ---- state ---------------------------------------------------------
 
     def reload_engine(self) -> None:
-        """Settings changed: model defaults and keys may be different now."""
-        self._on_engine_changed()
+        """Settings changed: refresh the defaults shown, keep what was typed."""
+        self._on_engine_changed(reset=False)
 
     def _engine(self) -> str:
         return self.engine.currentData() or "google"
 
-    def _on_engine_changed(self) -> None:
+    def _on_engine_changed(self, *_, reset: bool = True) -> None:
+        """Show the rows and defaults for the chosen service.
+
+        ``reset`` clears the model and thinking level, which belong to the service
+        that was chosen before. A change in Settings calls this with reset off:
+        saving a setting must not wipe what the user typed here.
+        """
         name = self._engine()
         saved = self.settings.engine(name)
         default_model, _ = engine_defaults(name)
         fallback = saved.model or default_model
 
         show_row(self.model_row, name != "google")
-        self.model.clear()
+        if reset:
+            self.model.clear()
         self.model.setPlaceholderText(fallback)
         self.model_row.set_description(
             tr("model.desc", model=fallback) if fallback else tr("model.desc_plain")
@@ -378,8 +393,42 @@ class TranslatePage(Page):
 
         supported = ENGINES[name].supports_reasoning
         show_row(self.thinking_row, supported)
-        level = saved.reasoning if supported else ""
-        self.thinking.setCurrentIndex(max(0, self.thinking.findData(level)))
+        if reset:
+            level = saved.reasoning if supported else ""
+            self.thinking.setCurrentIndex(max(0, self.thinking.findData(level)))
+
+    # ---- carrying unsaved choices across a rebuild ---------------------
+
+    def snapshot(self) -> dict:
+        """Everything chosen on this page, saved or not."""
+        return {
+            "files": self.books.paths(),
+            "engine": self._engine(),
+            "model": self.model.text(),
+            "thinking": self.thinking.currentData(),
+            "source": self.source.currentData(),
+            "epub": self.epub.isChecked(),
+            "pdf": self.pdf.isChecked(),
+            "pages": self.pages.text(),
+            "glossary": self.glossary.isChecked(),
+            "figures": self.figures.isChecked(),
+            "bilingual": self.bilingual.isChecked(),
+            "ocr": self.ocr.isChecked(),
+            "more_open": self.more._open,
+        }
+
+    def restore(self, snap: dict) -> None:
+        self.engine.setCurrentIndex(max(0, self.engine.findData(snap["engine"])))
+        self.model.setText(snap["model"])
+        self.thinking.setCurrentIndex(max(0, self.thinking.findData(snap["thinking"])))
+        self.source.setCurrentIndex(max(0, self.source.findData(snap["source"])))
+        self.epub.setChecked(snap["epub"])
+        self.pdf.setChecked(snap["pdf"])
+        self.pages.setText(snap["pages"])
+        for name in ("glossary", "figures", "bilingual", "ocr"):
+            getattr(self, name).setChecked(snap[name])
+        self.more.set_open(snap["more_open"])
+        self.add_files(snap["files"])
 
     def _set_output(self, folder: str, save: bool = True) -> None:
         self.settings.output_dir = folder
