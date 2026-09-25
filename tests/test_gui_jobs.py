@@ -11,7 +11,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtCore import QCoreApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from kitab.gui.jobs import JobManager, State  # noqa: E402
 
@@ -22,7 +22,9 @@ OPTIONS = {"service": "slowfake", "glossary": False, "embed_fonts": False}
 
 @pytest.fixture(scope="module")
 def app():
-    return QCoreApplication.instance() or QCoreApplication([])
+    # QApplication, not QCoreApplication: the UI tests in the same session need
+    # widgets, and a process can only ever have one application object.
+    return QApplication.instance() or QApplication([])
 
 
 @pytest.fixture
